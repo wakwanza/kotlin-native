@@ -247,6 +247,12 @@ internal class LinkStage(val context: Context) {
         return executable
     }
 
+    fun internalize(bitcodeFile: BitcodeFile): BitcodeFile {
+        val optimizedBc = temporary("internalized", ".bc")
+        hostLlvmTool("opt", bitcodeFile, "-o", optimizedBc, "-internalize")
+        return optimizedBc
+    }
+
     fun linkStage() {
         val bitcodeFiles = listOf(emitted) +
                 libraries.map { it.bitcodePaths }.flatten()
@@ -268,7 +274,7 @@ internal class LinkStage(val context: Context) {
                         is ZephyrConfigurables
                         -> llvmLinkAndLlc(bitcodeFiles)
                         else
-                        -> llc(opt(llvmLink(bitcodeFiles)))
+                        -> llc(opt(internalize(llvmLink(bitcodeFiles))))
                     }
             )
         }
