@@ -139,5 +139,7 @@ class K2NativeCompilerArguments : CommonCompilerArguments() {
     @Argument(value = "--verify_ir", description = "Verify IR")
     var verifyIr: Boolean = false
 
+    @Argument(value = "--llc", description = "Use opt+llc instead of llvm-lto")
+    var useLlc: Boolean = false
 }
 

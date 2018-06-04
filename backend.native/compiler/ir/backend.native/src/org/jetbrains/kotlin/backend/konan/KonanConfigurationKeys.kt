@@ -105,6 +105,8 @@ class KonanConfigKeys {
                 = CompilerConfigurationKey.create("verify ir")
         val VERBOSE_PHASES: CompilerConfigurationKey<List<String>> 
                 = CompilerConfigurationKey.create("verbose backend phases")
+        val LLC: CompilerConfigurationKey<Boolean>
+                = CompilerConfigurationKey.create("use llc for compilation")
     }
 }
 

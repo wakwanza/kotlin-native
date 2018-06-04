@@ -402,6 +402,9 @@ internal class Context(config: KonanConfig) : KonanBackendContext(config) {
 
     fun shouldOptimize() = config.configuration.getBoolean(KonanConfigKeys.OPTIMIZATION)
 
+    // TODO: remove me, i'm just for testing
+    fun shouldUseLlc() = config.configuration.getBoolean(KonanConfigKeys.LLC)
+
     fun shouldGenerateTestRunner() =
             config.configuration.getBoolean(KonanConfigKeys.GENERATE_TEST_RUNNER)
 
