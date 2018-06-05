@@ -35,6 +35,7 @@ konanArtifacts {
         srcDir 'src/main/kotlin'
         srcDir 'src/main/kotlin-native'
         enableOptimizations true
+        extraOpts '--llc'
     }
 }
 
