@@ -23,12 +23,20 @@ import org.jetbrains.kotlin.protobuf.ExtensionRegistryLite
 import org.jetbrains.kotlin.serialization.*
 import org.jetbrains.kotlin.types.KotlinType
 
-internal class KonanSerializerExtension(val context: Context) :
-        KotlinSerializerExtensionBase(KonanSerializerProtocol), IrAwareExtension {
+internal class KonanSerializerExtension(val context: Context, val declarationTable: DeclarationTable) :
+        KotlinSerializerExtensionBase(KonanSerializerProtocol)/*, IrAwareExtension */ {
 
-    val inlineDescriptorTable = DescriptorTable(context.irBuiltIns)
+    //val inlineDescriptorTable = DescriptorTable(context.irBuiltIns)
     override val stringTable = KonanStringTable()
     override fun shouldUseTypeTable(): Boolean = true
+
+    fun uniqId(descriptor: DeclarationDescriptor): KonanLinkData.DescriptorUniqId {
+        if (declarationTable.descriptors[descriptor] == null) {
+            println("### no declaration for descriptor: $descriptor")
+        }
+        val index = declarationTable.descriptors[descriptor] ?: -1
+        return newDescriptorUniqId(index)
+    }
 
     override fun serializeType(type: KotlinType, proto: ProtoBuf.Type.Builder) {
         // TODO: For debugging purpose we store the textual 
@@ -40,14 +48,17 @@ internal class KonanSerializerExtension(val context: Context) :
     }
 
     override fun serializeTypeParameter(typeParameter: TypeParameterDescriptor, proto: ProtoBuf.TypeParameter.Builder) {
+        proto.setExtension(KonanLinkData.typeParamUniqId, uniqId(typeParameter))
         super.serializeTypeParameter(typeParameter, proto)
     }
 
     override fun serializeValueParameter(descriptor: ValueParameterDescriptor, proto: ProtoBuf.ValueParameter.Builder) {
+        proto.setExtension(KonanLinkData.valueParamUniqId, uniqId(descriptor))
         super.serializeValueParameter(descriptor, proto)
     }
 
     override fun serializeEnumEntry(descriptor: ClassDescriptor, proto: ProtoBuf.EnumEntry.Builder) {
+        proto.setExtension(KonanLinkData.enumEntryUniqId, uniqId(descriptor))
         // Serialization doesn't preserve enum entry order, so we need to serialize ordinal.
         val ordinal = context.specialDeclarationsFactory.getEnumEntryOrdinal(descriptor)
         proto.setExtension(KonanLinkData.enumEntryOrdinal, ordinal)
@@ -55,17 +66,17 @@ internal class KonanSerializerExtension(val context: Context) :
     }
 
     override fun serializeConstructor(descriptor: ConstructorDescriptor, proto: ProtoBuf.Constructor.Builder) {
-
+        proto.setExtension(KonanLinkData.constructorUniqId, uniqId(descriptor))
         super.serializeConstructor(descriptor, proto)
     }
 
     override fun serializeClass(descriptor: ClassDescriptor, proto: ProtoBuf.Class.Builder) {
-
+        proto.setExtension(KonanLinkData.classUniqId, uniqId(descriptor))
         super.serializeClass(descriptor, proto)
     }
 
     override fun serializeFunction(descriptor: FunctionDescriptor, proto: ProtoBuf.Function.Builder) {
-
+        proto.setExtension(KonanLinkData.functionUniqId, uniqId(descriptor))
         super.serializeFunction(descriptor, proto)
     }
 
@@ -74,13 +85,13 @@ internal class KonanSerializerExtension(val context: Context) :
         if (variable != null) {
             proto.setExtension(KonanLinkData.usedAsVariable, true)
         }
-
-        proto.setExtension(KonanLinkData.hasBackingField, 
+        proto.setExtension(KonanLinkData.propertyUniqId, uniqId(descriptor))
+        proto.setExtension(KonanLinkData.hasBackingField,
             context.ir.propertiesWithBackingFields.contains(descriptor))
 
         super.serializeProperty(descriptor, proto)
     }
-
+/*
     override fun addFunctionIR(proto: ProtoBuf.Function.Builder, serializedIR: String) 
         = proto.setInlineIr(inlineBody(serializedIR))
 
@@ -98,6 +109,7 @@ internal class KonanSerializerExtension(val context: Context) :
         return IrSerializer( 
             context, inlineDescriptorTable, stringTable, serializer, descriptor).serializeInlineBody()
     }
+    */
 }
 
 object KonanSerializerProtocol : SerializerExtensionProtocol(
@@ -115,7 +127,7 @@ object KonanSerializerProtocol : SerializerExtensionProtocol(
         KonanLinkData.typeAnnotation,
         KonanLinkData.typeParameterAnnotation
 )
-
+/*
 internal interface IrAwareExtension {
 
     fun serializeInlineBody(descriptor: FunctionDescriptor, serializer: KonanDescriptorSerializer): String 
@@ -128,4 +140,4 @@ internal interface IrAwareExtension {
 
     fun addGetterIR(proto: ProtoBuf.Property.Builder, serializedIR: String): ProtoBuf.Property.Builder
 }
-
+*/

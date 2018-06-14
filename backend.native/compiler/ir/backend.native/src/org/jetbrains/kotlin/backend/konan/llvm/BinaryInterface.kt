@@ -44,7 +44,7 @@ import org.jetbrains.kotlin.utils.addToStdlib.ifNotEmpty
  * that doesn't depend on any internal transformations (e.g. IR lowering),
  * and so should be computable from the descriptor itself without checking a backend state.
  */
-internal tailrec fun DeclarationDescriptor.isExported(): Boolean {
+internal tailrec fun IrDeclaration.isExported(): Boolean {
     // TODO: revise
     val descriptorAnnotations = this.descriptor.annotations
     if (descriptorAnnotations.hasAnnotation(symbolNameAnnotation)) {
@@ -72,7 +72,7 @@ internal tailrec fun DeclarationDescriptor.isExported(): Boolean {
     if (this.isAnonymousObject)
         return false
 
-    if (this is ConstructorDescriptor && constructedClass.kind.isSingleton) {
+    if (this is IrConstructor && constructedClass.kind.isSingleton) {
         // Currently code generator can access the constructor of the singleton,
         // so ignore visibility of the constructor itself.
         return constructedClass.isExported()
@@ -160,9 +160,12 @@ private fun acyclicTypeMangler(visited: MutableSet<TypeParameterDescriptor>, typ
 private fun typeToHashString(type: IrType)
     = acyclicTypeMangler(mutableSetOf<TypeParameterDescriptor>(), type)
 
-private val FunctionDescriptor.signature: String
+internal val IrValueParameter.extensionReceiverNamePart: String
+    get() = "@${typeToHashString(this.type)}."
+
+private val IrFunction.signature: String
     get() {
-        val extensionReceiverPart = this.extensionReceiverParameter?.let { "@${typeToHashString(it.type)}." } ?: ""
+        val extensionReceiverPart = this.extensionReceiverParameter?.extensionReceiverNamePart ?: ""
         val argsPart = this.valueParameters.map {
             "${typeToHashString(it.type)}${if (it.isVararg) "_VarArg" else ""}"
         }.joinToString(";")
@@ -179,7 +182,7 @@ private val FunctionDescriptor.signature: String
     }
 
 // TODO: rename to indicate that it has signature included
-internal val FunctionDescriptor.functionName: String
+internal val IrFunction.functionName: String
     get() {
         with(this.original) { // basic support for generics
             this.getObjCMethodInfo()?.let {
@@ -198,8 +201,9 @@ internal val FunctionDescriptor.functionName: String
         }
     }
 
-internal val FunctionDescriptor.symbolName: String
+internal val IrFunction.symbolName: String
     get() {
+        println("### symbolName for $this")
         if (!this.isExported()) {
             throw AssertionError(this.descriptor.toString())
         }
@@ -220,6 +224,8 @@ internal val FunctionDescriptor.symbolName: String
         val containingDeclarationPart = parent.fqNameSafe.let {
             if (it.isRoot) "" else "$it."
         }
+
+        println("### symbolName = kfun:$containingDeclarationPart$functionName")
         return "kfun:$containingDeclarationPart$functionName"
     }
 
@@ -228,7 +234,7 @@ internal val IrField.symbolName: String
         val containingDeclarationPart = parent.fqNameSafe.let {
             if (it.isRoot) "" else "$it."
         }
-        return "kprop:$containingDeclarationPart$name"
+        return "kfield:$containingDeclarationPart$name"
 
     }
 
@@ -240,10 +246,10 @@ internal fun getStringValue(annotation: AnnotationDescriptor): String? {
 }
 
 // TODO: bring here dependencies of this method?
-internal fun RuntimeAware.getLlvmFunctionType(function: FunctionDescriptor): LLVMTypeRef {
+internal fun RuntimeAware.getLlvmFunctionType(function: IrFunction): LLVMTypeRef {
     val original = function.original
     val returnType = when {
-        original is ConstructorDescriptor -> voidType
+        original is IrConstructor -> voidType
         original.isSuspend -> kObjHeaderPtr                // Suspend functions return Any?.
         else -> getLLVMReturnType(original.returnType)
     }
@@ -263,19 +269,21 @@ internal fun RuntimeAware.getLlvmFunctionType(symbol: DataFlowIR.FunctionSymbol)
     return functionType(returnType, isVarArg = false, paramTypes = *paramTypes.toTypedArray())
 }
 
-internal val ClassDescriptor.typeInfoSymbolName: String
+internal val IrClass.typeInfoSymbolName: String
     get() {
         assert (this.isExported())
         return "ktype:" + this.fqNameSafe.toString()
     }
 
-internal val ClassDescriptor.writableTypeInfoSymbolName: String
+internal val IrClass.writableTypeInfoSymbolName: String
     get() {
         assert (this.isExported())
         return "ktypew:" + this.fqNameSafe.toString()
     }
 
-internal val ClassDescriptor.objectInstanceFieldSymbolName: String
+internal val theUnitInstanceName = "kobj:kotlin.Unit"
+
+internal val IrClass.objectInstanceFieldSymbolName: String
     get() {
         assert (this.isExported())
         assert (this.kind.isSingleton)
@@ -284,7 +292,7 @@ internal val ClassDescriptor.objectInstanceFieldSymbolName: String
         return "kobjref:$fqNameSafe"
     }
 
-internal val ClassDescriptor.objectInstanceShadowFieldSymbolName: String
+internal val IrClass.objectInstanceShadowFieldSymbolName: String
     get() {
         assert (this.isExported())
         assert (this.kind.isSingleton)
@@ -294,7 +302,7 @@ internal val ClassDescriptor.objectInstanceShadowFieldSymbolName: String
         return "kshadowobjref:$fqNameSafe"
     }
 
-internal val ClassDescriptor.typeInfoHasVtableAttached: Boolean
+internal val IrClass.typeInfoHasVtableAttached: Boolean
     get() = !this.isAbstract() && !this.isExternalObjCClass()
 
 internal fun ModuleDescriptor.privateFunctionSymbolName(index: Int, functionName: String?) = "private_functions_${name.asString()}_${functionName}_$index"

@@ -55,7 +55,7 @@ internal class LlvmDeclarations(
             error(descriptor.toString())
 
     fun forClass(descriptor: ClassDescriptor) = classes[descriptor] ?:
-            error(descriptor.toString())
+            error("$descriptor ${descriptor.name}")
 
     fun forField(descriptor: IrField) = fields[descriptor] ?:
             error(descriptor.toString())
@@ -214,6 +214,8 @@ private class DeclarationsGeneratorVisitor(override val context: Context) :
         if (declaration.isIntrinsic) {
             // do not generate any declarations for intrinsic classes as they require special handling
         } else {
+            println("### createClassDeclarations")
+            println("   declaration = $declaration ${declaration.name}")
             this.classes[declaration] = createClassDeclarations(declaration)
         }
 
@@ -401,6 +403,8 @@ private class DeclarationsGeneratorVisitor(override val context: Context) :
 
     override fun visitFunction(declaration: IrFunction) {
         super.visitFunction(declaration)
+
+        println("### visitFunction: ${declaration.name}")
 
         if (!declaration.isReal) return
 
