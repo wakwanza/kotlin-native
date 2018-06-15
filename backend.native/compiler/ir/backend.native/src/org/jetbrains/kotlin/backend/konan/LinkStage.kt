@@ -250,14 +250,21 @@ internal class LinkStage(val context: Context) {
     }
 
     private fun compileWithNewLlvmPipeline(program: BitcodeFile, libraries: List<KonanLibraryReader>): ObjectFile {
+        val phaser = PhaseManager(context)
         // Little hack to reduce stdlib linkage overhead
         fun stdlibPredicate(libraryReader: KonanLibraryReader) = libraryReader.uniqueName == "stdlib"
         val runtime = libraries.first(::stdlibPredicate).bitcodePaths.first { it.endsWith("runtime.bc") }
         val stdlib = libraries.first(::stdlibPredicate).bitcodePaths.first { it.endsWith("program.kt.bc") }
-        val withoutStdlib = llvmLink(listOf(program, runtime) + libraries.filterNot(::stdlibPredicate).map { it.bitcodePaths }.flatten())
-        val withStdlib = llvmLink(listOf(withoutStdlib, stdlib), onlyNeeded = true)
+        val withoutStdlib = phaser.phase(KonanPhase.LLVM_LINK) {
+            llvmLink(listOf(program, runtime) + libraries.filterNot(::stdlibPredicate).map { it.bitcodePaths }.flatten())
+        }!!
+        val withStdlib =phaser.phase(KonanPhase.LLVM_LINK_STDLIB) {
+            llvmLink(listOf(withoutStdlib, stdlib), onlyNeeded = true)
+        }!!
 
-        return llc(opt(withStdlib))
+        return phaser.phase(KonanPhase.OBJECT_FILES) {
+            llc(opt(withStdlib))
+        }!!
     }
 
 
@@ -274,19 +281,19 @@ internal class LinkStage(val context: Context) {
         val objectFiles: MutableList<String> = mutableListOf()
 
         val phaser = PhaseManager(context)
-        phaser.phase(KonanPhase.OBJECT_FILES) {
             objectFiles.add(
-                    when (platform.configurables) {
-                        is WasmConfigurables -> bitcodeToWasm(bitcodeFiles)
-                        is ZephyrConfigurables -> llvmLinkAndLlc(bitcodeFiles)
-                        else -> if (context.shouldUseLlc()) {
-                            compileWithNewLlvmPipeline(emitted, libraries)
-                        } else {
+                when (platform.configurables) {
+                    is WasmConfigurables -> bitcodeToWasm(bitcodeFiles)
+                    is ZephyrConfigurables -> llvmLinkAndLlc(bitcodeFiles)
+                    else -> if (context.shouldUseLlc()) {
+                        compileWithNewLlvmPipeline(emitted, libraries)
+                    } else {
+                        phaser.phase(KonanPhase.OBJECT_FILES) {
                             llvmLto(bitcodeFiles)
-                        }
+                        }!!
                     }
+                }
             )
-        }
         phaser.phase(KonanPhase.LINKER) {
             link(objectFiles, includedBinaries, libraryProvidedLinkerFlags)
         }

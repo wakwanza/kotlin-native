@@ -68,6 +68,8 @@ enum class KonanPhase(val description: String,
     /* ... ... */ CODEGEN("Code Generation"),
     /* ... ... */ BITCODE_LINKER("Bitcode linking"),
     /* */ LINK_STAGE("Link stage"),
+    /* ... */ LLVM_LINK("Link without stdlib"),
+    /* ... */ LLVM_LINK_STDLIB("Link with stdlib"),
     /* ... */ OBJECT_FILES("Bitcode to object file"),
     /* ... */ LINKER("Linker");
 
@@ -119,9 +121,9 @@ internal class PhaseManager(val context: Context)  {
 
     val previousPhases = mutableSetOf<KonanPhase>()
 
-    internal fun phase(phase: KonanPhase, body: () -> Unit) {
+    internal fun <T> phase(phase: KonanPhase, body: () -> T): T? {
 
-        if (!phase.enabled) return
+        if (!phase.enabled) return null
 
         phase.prerequisite.forEach {
             if (!previousPhases.contains(it))
@@ -134,8 +136,8 @@ internal class PhaseManager(val context: Context)  {
         context.phase = phase
         context.depth ++
 
-        with (context) {
-            profileIf(shouldProfilePhases(), "Phase ${nTabs(depth)} ${phase.name}") {
+        val result = with (context) {
+            val bodyResult = profileIf(shouldProfilePhases(), "Phase ${nTabs(depth)} ${phase.name}") {
                 body()
             }
 
@@ -158,10 +160,12 @@ internal class PhaseManager(val context: Context)  {
             if (shouldPrintLocations()) {
                 printLocations()
             }
+            bodyResult
         }
 
         context.depth --
         context.phase = savePhase
+        return result
     }
 }
 

@@ -19,19 +19,25 @@ package org.jetbrains.kotlin.konan.util
 import kotlin.system.measureTimeMillis
 import org.jetbrains.kotlin.konan.file.*
 
-fun printMillisec(message: String, body: () -> Unit) {
+fun <T> printMillisec(message: String, body: () -> T): T {
+    var result: T? = null
     val msec = measureTimeMillis{
-        body()
+        result = body()
     }
     println("$message: $msec msec")
+    return result!!
 }
 
 fun profile(message: String, body: () -> Unit) = profileIf(
     System.getProperty("konan.profile")?.equals("true") ?: false,
     message, body)
 
-fun profileIf(condition: Boolean, message: String, body: () -> Unit) =
-    if (condition) printMillisec(message, body) else body()
+fun <T> profileIf(condition: Boolean, message: String, body: () -> T) =
+    if (condition) {
+        printMillisec(message, body)
+    } else {
+        body()
+    }
 
 fun nTabs(amount: Int): String {
     return String.format("%1$-${(amount+1)*4}s", "") 
