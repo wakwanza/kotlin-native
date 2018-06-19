@@ -19,12 +19,10 @@ repositories {
 }
 
 //TODO: property
-def jvmWarmup = 10000
 def nativeWarmup = 10
 
 ext."konan.home" = distDir
 
-apply plugin: 'kotlin'
 apply plugin: 'application'
 apply plugin: 'konan'
 
@@ -36,34 +34,7 @@ konanArtifacts {
         srcDir 'src/main/kotlin-native'
         enableOptimizations true
         extraOpts '--llc'
-    }
-}
-
-sourceSets {
-    main.kotlin.srcDir 'src/main/kotlin'
-    main.kotlin.srcDir 'src/main/kotlin-jvm'
-}
-
-compileKotlin {
-    kotlinOptions.suppressWarnings = true
-    kotlinOptions {
-        jvmTarget = "1.8"
-    }
-}
-
-dependencies {
-    compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$buildKotlinVersion"
-}
-
-task jvmRun(type: JavaExec) {
-    dependsOn 'build'
-    def output = new ByteArrayOutputStream()
-    classpath sourceSets.main.runtimeClasspath
-    main = "MainKt"
-    args "$jvmWarmup"
-    standardOutput = output
-    doLast {
-        dumpReport('jvmReport', output)
+        extraOpts '--verbose', 'object_files'
     }
 }
 
@@ -88,42 +59,32 @@ startScripts{
 }
 
 task bench(type:DefaultTask) {
-    dependsOn jvmRun
     dependsOn konanRun
-
     doLast {
-        def jvmReport = new Report(project.file("build/jvmReport.txt"))
         def konanReport = new Report(project.file("build/konanReport.txt"))
-        def average = "none"
         def absoluteAverage = "none"
-        jvmReport.report
+        konanReport.report
                 .sort { konanReport.report[it.key].mean / it.value.mean }
                 .each { k, v ->
             def konanValue = konanReport.report[k]
             def ratio = konanValue.mean / v.mean
-            def minRatio = (konanValue.mean - konanValue.stdDev) / (v.mean + v.stdDev)
-            def maxRatio = (konanValue.mean + konanValue.stdDev) / (v.mean - v.stdDev)
-            def ratioStdDev = Math.min(Math.abs(minRatio - ratio), Math.abs(maxRatio - ratio))
-            def formattedKonanValue = String.format('%.4f us +- %.4f us', konanValue.mean / 1000, konanValue.stdDev / 1000)
-            def formattedRatio = String.format('%.2f +- %.2f', ratio, ratioStdDev)
+            def formattedKonanValue = String.format('%.4f ± %.4f us', konanValue.mean / 1000, konanValue.stdDev / 1000)
             if (k == 'RingAverage') {
-                average = formattedRatio
                 absoluteAverage = formattedKonanValue
             } else {
-                println("$k : absolute = $formattedKonanValue, ratio = $formattedRatio")
+                println("$k : absolute = $formattedKonanValue")
             }
             if (System.getenv("TEAMCITY_BUILD_PROPERTIES_FILE") != null)
                 println("##teamcity[buildStatisticValue key='$k' value='$ratio']")
         }
-
         println()
-        println("Average Ring score: absolute = $absoluteAverage, ratio = $average")
+        println("Average Ring score: absolute = $absoluteAverage")
     }
 }
 
 class Results {
-    def Double mean
-    def Double stdDev
+    Double mean
+    Double stdDev
 
     Results(Double mean, Double stdDev) {
         this.mean = mean
@@ -132,7 +93,7 @@ class Results {
 }
 
 class Report {
-    def Map<String, Results> report = new TreeMap()
+    Map<String, Results> report = new TreeMap()
 
     Report(File path) {
         path.readLines().drop(3).findAll { it.split(':').length == 3 }.each {

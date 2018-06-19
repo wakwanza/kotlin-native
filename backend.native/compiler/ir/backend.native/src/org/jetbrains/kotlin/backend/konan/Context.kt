@@ -51,6 +51,7 @@ import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
 import org.jetbrains.kotlin.konan.target.CompilerOutputKind
+import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.load.java.BuiltinMethodsWithSpecialGenericSignature
 import org.jetbrains.kotlin.metadata.KonanLinkData
 import org.jetbrains.kotlin.name.FqName
@@ -403,7 +404,7 @@ internal class Context(config: KonanConfig) : KonanBackendContext(config) {
     fun shouldOptimize() = config.configuration.getBoolean(KonanConfigKeys.OPTIMIZATION)
 
     // TODO: remove me, i'm just for testing
-    fun shouldUseLlc() = config.configuration.getBoolean(KonanConfigKeys.LLC)
+    fun shouldUseLlc() = config.configuration.getBoolean(KonanConfigKeys.LLC) && config.target == KonanTarget.MACOS_X64
 
     fun shouldGenerateTestRunner() =
             config.configuration.getBoolean(KonanConfigKeys.GENERATE_TEST_RUNNER)

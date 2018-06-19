@@ -135,8 +135,8 @@ internal class LinkStage(val context: Context) {
         return combinedO
     }
 
-    private fun llvmLink(bitcodeFiles: List<BitcodeFile>, onlyNeeded: Boolean = false): BitcodeFile {
-        val combinedBc = temporary("linked", ".bc")
+    private fun llvmLink(bitcodeFiles: List<BitcodeFile>, onlyNeeded: Boolean = false, outputName: String = "linked"): BitcodeFile {
+        val combinedBc = temporary(outputName, ".bc")
         val flags = (if (onlyNeeded) arrayOf("-only-needed") else emptyArray()) + llvmProfilingFlags()
         hostLlvmTool("llvm-link", "-o", combinedBc, *bitcodeFiles.toTypedArray(), *flags)
         return combinedBc
@@ -251,15 +251,15 @@ internal class LinkStage(val context: Context) {
 
     private fun compileWithNewLlvmPipeline(program: BitcodeFile, libraries: List<KonanLibraryReader>): ObjectFile {
         val phaser = PhaseManager(context)
-        // Little hack to reduce stdlib linkage overhead
+        // Little hack to reduce stdlib linkage overhead. Won't be needed with IR-level linkage.
         fun stdlibPredicate(libraryReader: KonanLibraryReader) = libraryReader.uniqueName == "stdlib"
         val runtime = libraries.first(::stdlibPredicate).bitcodePaths.first { it.endsWith("runtime.bc") }
         val stdlib = libraries.first(::stdlibPredicate).bitcodePaths.first { it.endsWith("program.kt.bc") }
         val withoutStdlib = phaser.phase(KonanPhase.LLVM_LINK) {
             llvmLink(listOf(program, runtime) + libraries.filterNot(::stdlibPredicate).map { it.bitcodePaths }.flatten())
         }!!
-        val withStdlib =phaser.phase(KonanPhase.LLVM_LINK_STDLIB) {
-            llvmLink(listOf(withoutStdlib, stdlib), onlyNeeded = true)
+        val withStdlib = phaser.phase(KonanPhase.LLVM_LINK_STDLIB) {
+            llvmLink(listOf(withoutStdlib, stdlib), onlyNeeded = true, outputName = "with_stdlib")
         }!!
 
         return phaser.phase(KonanPhase.OBJECT_FILES) {
