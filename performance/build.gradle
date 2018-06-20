@@ -121,8 +121,8 @@ task bench(type:DefaultTask) {
 }
 
 class Results {
-    def Double mean
-    def Double stdDev
+    Double mean
+    Double stdDev
 
     Results(Double mean, Double stdDev) {
         this.mean = mean
@@ -131,7 +131,7 @@ class Results {
 }
 
 class Report {
-    def Map<String, Results> report = new TreeMap()
+    Map<String, Results> report = new TreeMap()
 
     Report(File path) {
         path.readLines().drop(3).findAll { it.split(':').length == 3 }.each {

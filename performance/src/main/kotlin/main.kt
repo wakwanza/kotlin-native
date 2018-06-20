@@ -24,5 +24,9 @@ fun main(args: Array<String>) {
 
     println("Ring starting")
     println("  warmup  iterations count: $numWarmIterations")
-    Launcher(numWarmIterations).runBenchmarks()
+    val results = Launcher(numWarmIterations).runBenchmarks()
+
+    val reportWriter: ReportWriter = PrintReportWriter()
+
+    reportWriter.write(results)
 }

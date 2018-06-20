@@ -23,12 +23,16 @@ val BENCHMARK_SIZE = 100
 
 //-----------------------------------------------------------------------------//
 
+
+typealias Report = Map<String, Results>
+
+data class Results(val mean: Double, val variance: Double)
+
 class Launcher(val numWarmIterations: Int) {
-    class Results(val mean: Double, val variance: Double)
 
-    val results = mutableMapOf<String, Results>()
+    private val results = mutableMapOf<String, Results>()
 
-    fun launch(benchmark: () -> Any?): Results {                          // If benchmark runs too long - use coeff to speed it up.
+    private fun launch(benchmark: () -> Any?): Results {                          // If benchmark runs too long - use coeff to speed it up.
         var i = numWarmIterations
 
         while (i-- > 0) benchmark()
@@ -68,7 +72,7 @@ class Launcher(val numWarmIterations: Int) {
 
     //-------------------------------------------------------------------------//
 
-    fun runBenchmarks() {
+    fun runBenchmarks(): Report {
         runAbstractMethodBenchmark()
         runClassArrayBenchmark()
         runClassBaselineBenchmark()
@@ -94,7 +98,7 @@ class Launcher(val numWarmIterations: Int) {
         runWithIndiciesBenchmark()
         runOctoTest()
 
-        printResultsNormalized()
+        return results
     }
 
     //-------------------------------------------------------------------------//
@@ -105,23 +109,6 @@ class Launcher(val numWarmIterations: Int) {
             val niceTime = "${it.value}".padStart(10)
             println("    $niceName to ${niceTime}L,")
         }
-    }
-
-    //-------------------------------------------------------------------------//
-
-    fun printResultsNormalized() {
-        var totalMean = 0.0
-        var totalVariance = 0.0
-        results.asSequence().sortedBy { it.key }.forEach {
-            val niceName  = it.key.padEnd(50, ' ')
-            println("$niceName : ${it.value.mean.toString(9)} : ${kotlin.math.sqrt(it.value.variance).toString(9)}")
-
-            totalMean += it.value.mean
-            totalVariance += it.value.variance
-        }
-        val averageMean = totalMean / results.size
-        val averageStdDev = kotlin.math.sqrt(totalVariance) / results.size
-        println("\nRingAverage: ${averageMean.toString(9)} : ${averageStdDev.toString(9)}")
     }
 
     //-------------------------------------------------------------------------//
@@ -461,18 +448,5 @@ class Launcher(val numWarmIterations: Int) {
 
     fun runOctoTest() {
         results["OctoTest"] = launch(::octoTest)
-    }
-
-    //-------------------------------------------------------------------------//
-
-    fun Double.toString(n: Int): String {
-        val str = this.toString()
-        if (str.contains('e', ignoreCase = true)) return str
-
-        val len      = str.length
-        val pointIdx = str.indexOf('.')
-        val dropCnt  = len - pointIdx - n - 1
-        if (dropCnt < 1) return str
-        return str.dropLast(dropCnt)
     }
 }
