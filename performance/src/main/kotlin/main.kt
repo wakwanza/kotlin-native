@@ -15,6 +15,7 @@
  */
 
 import org.jetbrains.ring.Launcher
+import org.jetbrains.ring.Report
 
 fun main(args: Array<String>) {
     var numWarmIterations    =  0       // Should be 100000 for jdk based run
