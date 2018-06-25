@@ -103,8 +103,8 @@ task bench(type:DefaultTask) {
             def minRatio = (konanValue.mean - konanValue.stdDev) / (v.mean + v.stdDev)
             def maxRatio = (konanValue.mean + konanValue.stdDev) / (v.mean - v.stdDev)
             def ratioStdDev = Math.min(Math.abs(minRatio - ratio), Math.abs(maxRatio - ratio))
-            def formattedKonanValue = String.format('%.4f us +- %.4f us', konanValue.mean / 1000, konanValue.stdDev / 1000)
-            def formattedRatio = String.format('%.2f +- %.2f', ratio, ratioStdDev)
+            def formattedKonanValue = String.format('%.4f us ± %.4f us', konanValue.mean / 1000, konanValue.stdDev / 1000)
+            def formattedRatio = String.format('%.2f ± %.2f', ratio, ratioStdDev)
             if (k == 'RingAverage') {
                 average = formattedRatio
                 absoluteAverage = formattedKonanValue

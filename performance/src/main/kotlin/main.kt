@@ -15,13 +15,12 @@
  */
 
 import org.jetbrains.ring.Launcher
-import org.jetbrains.ring.Report
 
 fun main(args: Array<String>) {
-    var numWarmIterations    =  0       // Should be 100000 for jdk based run
+    var numWarmIterations = 0       // Should be 100000 for jdk based run
 
     if (args.size == 1)
-        numWarmIterations    = args[0].toInt()
+        numWarmIterations = args[0].toInt()
 
     println("Ring starting")
     println("  warmup  iterations count: $numWarmIterations")
