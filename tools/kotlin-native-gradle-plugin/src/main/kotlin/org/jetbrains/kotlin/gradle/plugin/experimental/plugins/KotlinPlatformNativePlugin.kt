@@ -1,5 +1,6 @@
 package org.jetbrains.kotlin.gradle.plugin.experimental.plugins
 
+import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.Project
 import org.gradle.api.tasks.SourceSet
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformImplementationPluginBase
@@ -25,4 +26,6 @@ class KotlinPlatformNativePlugin : KotlinPlatformImplementationPluginBase("nativ
             """.trimIndent())
         }
     }
+
+    override fun namedSourceSetsContainer(project: Project) = project.kotlinNativeSourceSets
 }
