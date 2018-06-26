@@ -17,6 +17,13 @@
 package org.jetbrains.kotlin.gradle.plugin
 
 import org.gradle.api.*
+import org.gradle.api.artifacts.DependencyConstraint
+import org.gradle.api.artifacts.ModuleDependency
+import org.gradle.api.artifacts.PublishArtifact
+import org.gradle.api.attributes.Attribute
+import org.gradle.api.attributes.AttributeContainer
+import org.gradle.api.attributes.Usage
+import org.gradle.api.capabilities.Capability
 import org.gradle.api.component.ComponentWithVariants
 import org.gradle.api.component.SoftwareComponent
 import org.gradle.api.file.FileCollection
@@ -28,7 +35,11 @@ import org.gradle.api.plugins.BasePlugin
 import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.api.publish.maven.internal.publication.MavenPublicationInternal
+import org.gradle.language.cpp.CppBinary
+import org.gradle.language.cpp.internal.DefaultUsageContext
 import org.gradle.language.cpp.internal.NativeVariantIdentity
+import org.gradle.nativeplatform.Linkage
+import org.gradle.nativeplatform.OperatingSystemFamily
 import org.gradle.tooling.provider.model.ToolingModelBuilderRegistry
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.plugin.KonanPlugin.Companion.COMPILE_ALL_TASK_NAME
@@ -356,6 +367,16 @@ class KonanPlugin @Inject constructor(private val registry: ToolingModelBuilderR
         project.afterEvaluate {
             if (!isPublicationEnabled)
                 return@afterEvaluate
+
+            val requestedTargets = project.hostManager.targetValues.filter { val targetIsRequested = project.targetIsRequested(it)
+                println("${it.name}: $targetIsRequested")
+                targetIsRequested
+            }
+            project.logger.info("requested targets: ${requestedTargets.map { it.name }}")
+            val targetsWeCantPublishFromHost = requestedTargets.filterNot { project.hostManager.isEnabled(it) }
+
+            fun KonanTarget.asOperatingSystemFamily(): OperatingSystemFamily = project.objects.named(OperatingSystemFamily::class.java, family.name)
+            project.logger.info("targets we can't process on current host: ${targetsWeCantPublishFromHost.map { it.name }}")
             project.pluginManager.withPlugin("maven-publish") {
                 container.all { buildingConfig ->
                     val konanSoftwareComponent = buildingConfig.mainVariant
@@ -389,9 +410,64 @@ class KonanPlugin @Inject constructor(private val registry: ToolingModelBuilderR
                                 }
                             }
                         }
+
+                        val coordinates = (konanSoftwareComponent.variants.first() as NativeVariantIdentity).coordinates
+                        for (target in targetsWeCantPublishFromHost) {
+                            project.logger.info("processing... ${target.name}")
+                            val objectFactory = project.objects
+                            val linkUsage = objectFactory.named(Usage::class.java, Usage.NATIVE_LINK)
+                            val artifactName = buildingConfig.name
+                            val variantName = "${artifactName}_${target.name}"
+                            val configuration = project.configurations.maybeCreate("artifact_fake_$artifactName")
+                            val platformConfiguration = project.configurations.create("artifact_fake_${artifactName}_${target.name}")
+                            platformConfiguration.extendsFrom(configuration)
+
+                            platformConfiguration.attributes{
+                                it.attribute(Usage.USAGE_ATTRIBUTE, project.objects.named(Usage::class.java, Usage.NATIVE_LINK))
+                                it.attribute(CppBinary.LINKAGE_ATTRIBUTE, Linkage.STATIC)
+                                it.attribute(CppBinary.OPTIMIZED_ATTRIBUTE, false)
+                                it.attribute(CppBinary.DEBUGGABLE_ATTRIBUTE, false)
+                                it.attribute(Attribute.of("org.gradle.native.kotlin.platform", String::class.java), target.name)
+                            }
+
+                            val context = DefaultUsageContext(object:UsageContext {
+                                override fun getUsage(): Usage = linkUsage
+                                override fun getName(): String = "${variantName}Link"
+                                override fun getCapabilities(): MutableSet<out Capability> = mutableSetOf()
+                                override fun getDependencies(): MutableSet<out ModuleDependency> = mutableSetOf()
+                                override fun getDependencyConstraints(): MutableSet<out DependencyConstraint> = mutableSetOf()
+                                override fun getArtifacts(): MutableSet<out PublishArtifact> = mutableSetOf()
+                                override fun getAttributes(): AttributeContainer = platformConfiguration.attributes
+                            }, emptySet(), platformConfiguration)
+
+                            val fakeVariant = NativeVariantIdentity(
+                                    variantName,
+                                    project.provider{ artifactName },
+                                    project.provider{ project.group.toString() },
+                                    project.provider{ project.version.toString() },
+                                    false,
+                                    false,
+                                    target.asOperatingSystemFamily(),
+                                    context,
+                                    null)
+
+                            publishing.publications.create(fakeVariant.name, MavenPublication::class.java) { mavenPublication ->
+                                val coordinates = fakeVariant.coordinates
+                                project.logger.info("fake variant with coordinates($coordinates) and module: ${coordinates.module}")
+                                mavenPublication.artifactId = coordinates.module.name
+                                mavenPublication.groupId = coordinates.group
+                                mavenPublication.version = coordinates.version
+                                mavenPublication.from(fakeVariant)
+                                (mavenPublication as MavenPublicationInternal).publishWithOriginalFileName()
+                                buildingConfig.pomActions.forEach {
+                                    mavenPublication.pom(it)
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
     }
+
 }
