@@ -1,18 +1,14 @@
 package org.jetbrains.ring
 
 import java.io.File
-import java.nio.charset.Charset
-import java.nio.file.Files
-import java.nio.file.Paths
 
 
-fun writeResultsToFile(results: Report, outputFileName: String) {
-    val file = Paths.get(outputFileName)
-    val lines = results.map { (name, result) ->
+// Gradle will change stdout so we don't bother ourselves with file writing.
+fun writeReportToCsv(results: Report) {
+    for ((name, result) in results) {
         val (mean, variance) = result
-        "$name,$mean,$variance"
+        println("$name,$mean,$variance")
     }
-    Files.write(file, lines, Charset.forName("UTF-8"))
 }
 
 fun readReportFromCsv(inputFileName: String): Report {

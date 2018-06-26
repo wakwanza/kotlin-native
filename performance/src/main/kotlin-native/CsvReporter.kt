@@ -3,19 +3,21 @@ package org.jetbrains.ring
 import kotlinx.cinterop.*
 import platform.posix.*
 
-fun writeResultsToFile(results: Map<String, Results>, outputFileName: String) {
+
+// Gradle will change stdout so we don't bother ourselves with file writing.
+fun writeReportToCsv(results: Map<String, Results>) {
     for ((name, result) in results) {
         val (mean, variance) = result
         println("$name,$mean,$variance")
     }
 }
 
-fun readReportFromCsv(inputFileName: String): Report {
+fun readReportFromCsv(fileName: String): Report {
     val report = mutableMapOf<String, Results>()
     val file = fopen(fileName, "r")
     if (file == null) {
         perror("cannot open input file $fileName")
-        return
+        return report
     }
     try {
         memScoped {

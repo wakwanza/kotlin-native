@@ -1,12 +1,12 @@
 import org.jetbrains.ring.Report
-import org.jetbrains.ring.writeResultsToFile
+import org.jetbrains.ring.writeReportToCsv
 
 interface ReportWriter {
     fun write(report: Report)
 }
 
-class CsvReportWriter(private val outputFileName: String) : ReportWriter {
-    override fun write(report: Report) = writeResultsToFile(report, outputFileName)
+class CsvReportWriter : ReportWriter {
+    override fun write(report: Report) = writeReportToCsv(report)
 }
 
 class PrintReportWriter : ReportWriter {
@@ -29,7 +29,7 @@ private fun printResultsNormalized(results: Report) {
     println("\nRingAverage: ${averageMean.toString(9)} : ${averageStdDev.toString(9)}")
 }
 
-private fun Double.toString(n: Int): String {
+fun Double.toString(n: Int): String {
     val str = this.toString()
     if (str.contains('e', ignoreCase = true)) return str
 
