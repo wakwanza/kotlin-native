@@ -450,7 +450,7 @@ internal class Context(config: KonanConfig) : KonanBackendContext(config) {
 
     fun verifyBitCode() {
         if (llvmModule == null) return
-        verifyModule(llvmModule!!)
+        verifyModule(llvmModule!!, this)
     }
 
     fun printBitCode() {
@@ -494,11 +494,13 @@ internal class Context(config: KonanConfig) : KonanBackendContext(config) {
 
     fun shouldOptimize() = config.configuration.getBoolean(KonanConfigKeys.OPTIMIZATION)
 
+    fun shouldUseNewPipeline() = config.configuration.getBoolean(KonanConfigKeys.NEW_PIPELINE)
+
     fun shouldGenerateTestRunner() =
             config.configuration.getBoolean(KonanConfigKeys.GENERATE_TEST_RUNNER)
 
     override fun log(message: () -> String) {
-        if (phase?.verbose ?: false) {
+        if (phase?.verbose == true) {
             println(message())
         }
     }

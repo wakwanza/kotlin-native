@@ -176,6 +176,8 @@ class K2Native : CLICompiler<K2NativeCompilerArguments>() {
 
                 put(GENERATE_TEST_RUNNER, arguments.generateTestRunner)
 
+                put(NEW_PIPELINE, arguments.newPipeline)
+
                 // We need to download dependencies only if we use them ( = there are files to compile).
                 put(CHECK_DEPENDENCIES, if (configuration.kotlinSourceRoots.isNotEmpty()) {
                         true
