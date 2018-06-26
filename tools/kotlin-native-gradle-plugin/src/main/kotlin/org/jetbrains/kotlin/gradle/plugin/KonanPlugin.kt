@@ -380,19 +380,6 @@ class KonanPlugin @Inject constructor(private val registry: ToolingModelBuilderR
             project.pluginManager.withPlugin("maven-publish") {
                 container.all { buildingConfig ->
                     val konanSoftwareComponent = buildingConfig.mainVariant
-                    project.extensions.configure(PublishingExtension::class.java) {
-                        val builtArtifact = buildingConfig.name
-                        val mavenPublication = it.publications.maybeCreate(builtArtifact, MavenPublication::class.java)
-                        mavenPublication.apply {
-                            artifactId = builtArtifact
-                            groupId = project.group.toString()
-                            from(konanSoftwareComponent)
-                        }
-                        (mavenPublication as MavenPublicationInternal).publishWithOriginalFileName()
-                        buildingConfig.pomActions.forEach {
-                            mavenPublication.pom(it)
-                        }
-                    }
 
                     project.extensions.configure(PublishingExtension::class.java) {
                         val publishing = it
@@ -450,7 +437,7 @@ class KonanPlugin @Inject constructor(private val registry: ToolingModelBuilderR
                                     target.asOperatingSystemFamily(),
                                     context,
                                     null)
-
+                            konanSoftwareComponent.addVariant(fakeVariant)
                             publishing.publications.create(fakeVariant.name, MavenPublication::class.java) { mavenPublication ->
                                 val coordinates = fakeVariant.coordinates
                                 project.logger.info("fake variant with coordinates($coordinates) and module: ${coordinates.module}")
@@ -463,6 +450,20 @@ class KonanPlugin @Inject constructor(private val registry: ToolingModelBuilderR
                                     mavenPublication.pom(it)
                                 }
                             }
+                        }
+                    }
+
+                    project.extensions.configure(PublishingExtension::class.java) {
+                        val builtArtifact = buildingConfig.name
+                        val mavenPublication = it.publications.maybeCreate(builtArtifact, MavenPublication::class.java)
+                        mavenPublication.apply {
+                            artifactId = builtArtifact
+                            groupId = project.group.toString()
+                            from(konanSoftwareComponent)
+                        }
+                        (mavenPublication as MavenPublicationInternal).publishWithOriginalFileName()
+                        buildingConfig.pomActions.forEach {
+                            mavenPublication.pom(it)
                         }
                     }
                 }
