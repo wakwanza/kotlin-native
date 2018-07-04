@@ -57,7 +57,7 @@ internal abstract class AbstractSet(val type: Int = 0) {
         val dummyNext = object : AbstractSet() {
             override var next: AbstractSet
                 get() = throw AssertionError("This method is not expected to be called.")
-                set(value) {}
+                set(@Suppress("UNUSED_PARAMETER") value) {}
             override fun matches(startIndex: Int, testString: CharSequence, matchResult: MatchResultImpl) =
                 throw AssertionError("This method is not expected to be called.")
             override fun hasConsumed(matchResult: MatchResultImpl): Boolean =
