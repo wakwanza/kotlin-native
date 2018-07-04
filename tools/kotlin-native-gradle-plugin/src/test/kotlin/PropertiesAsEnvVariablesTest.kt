@@ -16,6 +16,7 @@
 
 package org.jetbrains.kotlin.gradle.plugin.test
 
+import org.intellij.lang.annotations.Language
 import org.jetbrains.kotlin.gradle.plugin.test.KonanProject.escapeBackSlashes
 import org.jetbrains.kotlin.konan.target.HostManager
 import org.jetbrains.kotlin.konan.target.KonanTarget
@@ -200,5 +201,33 @@ open class PropertiesAsEnvVariablesTest {
         project.createRunner()
                 .withArguments("assertUpToDate", "-Pkonan.configuration.build.dir=${fooDir.absolutePath}")
                 .build()
+    }
+
+    private fun KonanProject.createBuildFile(@Language("Groovy") text: String) = this.buildFile.appendText(text)
+
+    @Test
+    fun `Correctly quote system properties`() {
+        with(KonanProject.createEmpty(projectDirectory)) {
+            val destination = createSubDir("destination")
+
+            createBuildFile("""
+                apply plugin: 'konan'
+                konanArtifacts {
+                    program('foo') {
+                        srcDir 'src'
+                    }
+                }
+            """)
+            generateSrcFile("main.kt")
+            createRunner()
+                    .withArguments("build", "-Pkonan.configuration.build.dir=${destination.absolutePath}",
+                            "-Dorg.osgi.framework.system.capabilities=osgi.ee; osgi.ee=\"OSGi/Minimum\"; " +
+                            "version:List<Version>=\"1.0, 1.1, 1.2\",osgi.ee; osgi.ee=\"JRE\"; version:List<Version>=" +
+                            "\"1.0, 1.1\",osgi.ee; osgi.ee=\"JavaSE\"; version:List<Version>=\"1.0, 1.1, 1.2, 1.3, " +
+                            "1.4, 1.5, 1.6, 1.7, 1.8\",osgi.ee; osgi.ee=\"JavaSE/compact1\"; version:List<Version>=" +
+                            "\"1.8\",osgi.ee; osgi.ee=\"JavaSE/compact2\"; version:List<Version>=\"1.8\",osgi.ee; " +
+                            "osgi.ee=\"JavaSE/compact3\"; version:List<Version>=\"1.8\"\n")
+                    .build()
+        }
     }
 }
