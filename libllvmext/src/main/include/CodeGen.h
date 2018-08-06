@@ -18,6 +18,6 @@
 
 #include <llvm/IR/Module.h>
 
-int compileModule(Module& module);
+//int compileModule(Module& module);
 
 #endif //LIBLLVMEXT_CODEGEN_H

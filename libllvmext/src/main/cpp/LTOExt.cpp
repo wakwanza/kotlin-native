@@ -25,6 +25,7 @@
 #include <llvm/LTO/Config.h>
 #include <llvm/Analysis/TargetLibraryInfo.h>
 #include <llvm/Transforms/IPO.h>
+#include <llvm/Transforms/IPO/AlwaysInliner.h>
 #include <llvm/Support/TargetRegistry.h>
 #include <llvm/Linker/Linker.h>
 #include <llvm/IR/Verifier.h>
@@ -39,6 +40,7 @@
 #include <llvm/Support/Host.h>
 
 #include <memory>
+#include <ctime>
 
 using namespace llvm;
 
@@ -70,15 +72,22 @@ class ModuleLinker {
       : mergedModule(new Module("merged", context)),
         linker(*mergedModule) {}
 
-  bool linkModule(std::unique_ptr<Module> module, bool onlyNeeded) {
+  bool linkModule(std::unique_ptr<Module> module, bool onlyNeeded, bool shouldProfile) {
     unsigned flags = Linker::Flags::None;
     if (onlyNeeded) {
       flags |= Linker::Flags::LinkOnlyNeeded;
     }
+
+    clock_t linkTime = clock();
+    std::string name = module->getName();
     if (linker.linkInModule(std::move(module), flags)) {
       return true;
     }
-    // TODO: measure overhead of the verification.
+    linkTime = clock() - linkTime;
+    if (shouldProfile) {
+      float seconds = ((float)linkTime)/CLOCKS_PER_SEC;
+      log::info() << "Linking of " << name << " took " << seconds << " seconds\n";
+    }
     return verifyModule(*mergedModule, &log::error());
   }
 
@@ -91,22 +100,23 @@ class ModuleLinker {
 static std::unique_ptr<Module> linkModules(LLVMContext &context,
                                            LLVMModuleRef programModuleRef,
                                            LLVMModuleRef runtimeModuleRef,
-                                           LLVMModuleRef stdlibModuleRef) {
+                                           LLVMModuleRef stdlibModuleRef,
+                                           bool shouldProfile) {
 
   std::unique_ptr<Module> programModule(unwrap(programModuleRef));
   std::unique_ptr<Module> runtimeModule(unwrap(runtimeModuleRef));
   std::unique_ptr<Module> stdlibModule(unwrap(stdlibModuleRef));
 
   ModuleLinker linker(context);
-  if (linker.linkModule(std::move(programModule), false)) {
+  if (linker.linkModule(std::move(programModule), false, shouldProfile)) {
     log::error() << "Cannot link program.\n";
     return nullptr;
   }
-  if (linker.linkModule(std::move(runtimeModule), false)) {
+  if (linker.linkModule(std::move(runtimeModule), false, shouldProfile)) {
     log::error() << "Cannot link program with runtime.\n";
     return nullptr;
   }
-  if (linker.linkModule(std::move(stdlibModule), true)) {
+  if (linker.linkModule(std::move(stdlibModule), true, shouldProfile)) {
     log::error() << "Cannot link standard library.\n";
     return nullptr;
   }
@@ -204,11 +214,15 @@ void populatePassManager(legacy::PassManager &pm,
   PassManagerBuilder Builder;
   Builder.OptLevel = optLevel;
   Builder.SizeLevel = sizeLevel;
-  Builder.Inliner = createFunctionInliningPass();
+  if (optLevel > 1) {
+    Builder.Inliner = createFunctionInliningPass();
+  } else {
+    Builder.Inliner = createAlwaysInlinerLegacyPass();
+  }
   Builder.DisableUnrollLoops = optLevel == 0;
   Builder.LoopVectorize = optLevel > 1 && sizeLevel < 2;
   Builder.SLPVectorize = optLevel > 1 && sizeLevel < 2;
-
+  Builder.LibraryInfo = new TargetLibraryInfoImpl(targetMachine.getTargetTriple());
   targetMachine.adjustPassManager(Builder);
 
   Builder.populateFunctionPassManager(fpm);
@@ -292,10 +306,10 @@ class CodeGenerator {
     std::unique_ptr<legacy::FunctionPassManager> functionPasses(manager);
     populatePassManager(pm, *functionPasses, module, targetMachine, optLevel, sizeLevel);
 
-    functionPasses->doInitialization();
-    for (Function &F : module)
-      functionPasses->run(F);
-    functionPasses->doFinalization();
+//    functionPasses->doInitialization();
+//    for (Function &F : module)
+//      functionPasses->run(F);
+//    functionPasses->doFinalization();
 
     switch (outputKind) {
       case OUTPUT_KIND_BITCODE:
@@ -326,8 +340,9 @@ int LLVMLtoCodegen(LLVMContextRef contextRef,
                    int outputKind,
                    const char *filename,
                    int optLevel,
-                   int sizeLevel) {
-
+                   int sizeLevel,
+                   int shouldProfile) {
+  TimePassesIsEnabled = static_cast<bool>(shouldProfile);
   std::error_code EC;
   sys::fs::OpenFlags OpenFlags = sys::fs::F_None;
   auto p = new tool_output_file(filename, EC, OpenFlags);
@@ -347,7 +362,8 @@ int LLVMLtoCodegen(LLVMContextRef contextRef,
 
   // Should copy target triple because runtimeModule will be disposed by linker.
   std::string targetTriple = LLVMGetTarget(runtimeModuleRef);
-  auto module = linkModules(*context, programModuleRef, runtimeModuleRef, stdlibModuleRef);
+  auto module = linkModules(*context, programModuleRef, runtimeModuleRef, stdlibModuleRef,
+                            static_cast<bool>(shouldProfile));
   if (module == nullptr) {
     log::error() << "Module linkage failed.\n";
     return 1;
@@ -371,6 +387,7 @@ int LLVMLtoCodegen(LLVMContextRef contextRef,
     return 1;
   }
   output->keep();
+  reportAndResetTimings();
   log::debug() << "Bitcode compilation is complete.\n";
   return 0;
 }

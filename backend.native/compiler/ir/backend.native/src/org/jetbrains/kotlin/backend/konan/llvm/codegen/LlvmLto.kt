@@ -1,5 +1,6 @@
 package org.jetbrains.kotlin.backend.konan.llvm.codegen
 
+import kotlinx.cinterop.toByte
 import llvm.*
 import org.jetbrains.kotlin.backend.konan.Context
 import org.jetbrains.kotlin.backend.konan.KonanPhase
@@ -41,7 +42,16 @@ internal fun lto(context: Context): String {
     }
 
     phaser.phase(KonanPhase.NEXTGEN) {
-        if (LLVMLtoCodegen(llvmContext, programModule, runtime.llvmModule, stdlibModule, outputKind, filename, optLevel, sizeLevel) != 0) {
+        if (LLVMLtoCodegen(
+                        llvmContext,
+                        programModule,
+                        runtime.llvmModule,
+                        stdlibModule,
+                        outputKind,
+                        filename,
+                        optLevel,
+                        sizeLevel,
+                        if (context.shouldProfilePhases()) 1 else 0) != 0) {
             context.log { "Codegen failed" }
         }
     }

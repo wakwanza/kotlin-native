@@ -15,6 +15,6 @@
  */
 #include "CodeGen.h"
 
-int compileModule(Module& module) {
-
-}
+//int compileModule(Module& module) {
+//
+//}

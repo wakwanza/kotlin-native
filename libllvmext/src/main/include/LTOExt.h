@@ -34,7 +34,8 @@ int LLVMLtoCodegen(LLVMContextRef contextRef,
                    int outputKind,
                    const char *filename,
                    int optLevel,
-                   int sizeLevel);
+                   int sizeLevel,
+                   int shouldProfile);
 
 #ifdef __cplusplus
 }

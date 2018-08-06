@@ -19,6 +19,7 @@ package org.jetbrains.kotlin.backend.konan
 import org.jetbrains.kotlin.backend.common.validateIrModule
 import org.jetbrains.kotlin.backend.konan.ir.KonanSymbols
 import org.jetbrains.kotlin.backend.konan.ir.ModuleIndex
+import org.jetbrains.kotlin.backend.konan.llvm.codegen.lto
 import org.jetbrains.kotlin.backend.konan.llvm.emitLLVM
 import org.jetbrains.kotlin.backend.konan.serialization.KonanSerializationUtil
 import org.jetbrains.kotlin.backend.konan.serialization.markBackingFields
@@ -103,7 +104,7 @@ fun runTopLevelPhases(konanConfig: KonanConfig, environment: KotlinCoreEnvironme
             if (context.shouldUseNewPipeline()) {
                 lto(context)
             } else {
-                produceOutput(contex, phaser)
+                produceOutput(context, phaser)
             }
         }
         // We always verify bitcode to prevent hard to debug bugs.
