@@ -18,7 +18,6 @@ package org.jetbrains.kotlin.konan.target
 
 import org.jetbrains.kotlin.konan.target.KonanTarget.*
 import org.jetbrains.kotlin.konan.util.Named
-import java.io.Serializable
 
 enum class Family(val exeSuffix:String, val dynamicPrefix: String, val dynamicSuffix: String,
                   val staticPrefix: String, val staticSuffix: String) {
