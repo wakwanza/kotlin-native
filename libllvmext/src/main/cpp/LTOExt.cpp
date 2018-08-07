@@ -48,7 +48,7 @@ using namespace llvm;
 constexpr bool debug = true;
 
 // Different logging streams.
-namespace log {
+namespace logging {
 raw_ostream &info() {
   return outs();
 }
@@ -72,7 +72,7 @@ class ModuleLinker {
       : mergedModule(new Module("merged", context)),
         linker(*mergedModule) {}
 
-  bool linkModule(std::unique_ptr<Module> module, bool onlyNeeded, bool shouldProfile) {
+  bool linkModule(std::unique_ptr<Module> module, bool onlyNeeded) {
     unsigned flags = Linker::Flags::None;
     if (onlyNeeded) {
       flags |= Linker::Flags::LinkOnlyNeeded;
@@ -84,11 +84,11 @@ class ModuleLinker {
       return true;
     }
     linkTime = clock() - linkTime;
-    if (shouldProfile) {
-      float seconds = ((float)linkTime)/CLOCKS_PER_SEC;
-      log::info() << "Linking of " << name << " took " << seconds << " seconds\n";
+    if (TimePassesIsEnabled) {
+      float seconds = ((float) linkTime) / CLOCKS_PER_SEC;
+      logging::info() << "Linking of " << name << " took " << seconds << " seconds\n";
     }
-    return verifyModule(*mergedModule, &log::error());
+    return verifyModule(*mergedModule, &logging::error());
   }
 
   std::unique_ptr<Module> mergedModule;
@@ -100,24 +100,23 @@ class ModuleLinker {
 static std::unique_ptr<Module> linkModules(LLVMContext &context,
                                            LLVMModuleRef programModuleRef,
                                            LLVMModuleRef runtimeModuleRef,
-                                           LLVMModuleRef stdlibModuleRef,
-                                           bool shouldProfile) {
+                                           LLVMModuleRef stdlibModuleRef) {
 
   std::unique_ptr<Module> programModule(unwrap(programModuleRef));
   std::unique_ptr<Module> runtimeModule(unwrap(runtimeModuleRef));
   std::unique_ptr<Module> stdlibModule(unwrap(stdlibModuleRef));
 
   ModuleLinker linker(context);
-  if (linker.linkModule(std::move(programModule), false, shouldProfile)) {
-    log::error() << "Cannot link program.\n";
+  if (linker.linkModule(std::move(programModule), false)) {
+    logging::error() << "Cannot link program.\n";
     return nullptr;
   }
-  if (linker.linkModule(std::move(runtimeModule), false, shouldProfile)) {
-    log::error() << "Cannot link program with runtime.\n";
+  if (linker.linkModule(std::move(runtimeModule), false)) {
+    logging::error() << "Cannot link program with runtime.\n";
     return nullptr;
   }
-  if (linker.linkModule(std::move(stdlibModule), true, shouldProfile)) {
-    log::error() << "Cannot link standard library.\n";
+  if (linker.linkModule(std::move(stdlibModule), true)) {
+    logging::error() << "Cannot link standard library.\n";
     return nullptr;
   }
   return std::move(linker.mergedModule);
@@ -131,14 +130,14 @@ TargetOptions createTargetOptions() {
 }
 
 // TODO: add blows and whistles
-std::unique_ptr<TargetMachine> createTargetMachine(const std::string &tripleString, int optLevel) {
+std::unique_ptr<TargetMachine> createTargetMachine(const std::string &tripleString, CompilationConfiguration config) {
   std::string errorMsg;
 
   Triple triple(tripleString);
 
   const Target *target = TargetRegistry::lookupTarget(tripleString, errorMsg);
   if (!target) {
-    log::error() << errorMsg;
+    logging::error() << errorMsg;
     return nullptr;
   }
 
@@ -163,7 +162,7 @@ std::unique_ptr<TargetMachine> createTargetMachine(const std::string &tripleStri
   Reloc::Model relocModel = Reloc::Model::Static;
 
   CodeGenOpt::Level codeGenOptLevel;
-  switch (optLevel) {
+  switch (config.optLevel) {
     case 0: codeGenOptLevel = CodeGenOpt::None;
       break;
     case 1: codeGenOptLevel = CodeGenOpt::Less;
@@ -172,7 +171,7 @@ std::unique_ptr<TargetMachine> createTargetMachine(const std::string &tripleStri
       break;
     case 3: codeGenOptLevel = CodeGenOpt::Aggressive;
       break;
-    default:log::error() << "Unsupported opt level: " << optLevel << "\n";
+    default:logging::error() << "Unsupported opt level: " << config.optLevel << "\n";
       return nullptr;
   }
   return std::unique_ptr<TargetMachine>(
@@ -184,7 +183,6 @@ std::unique_ptr<TargetMachine> createTargetMachine(const std::string &tripleStri
                                   CodeModel::Default,
                                   codeGenOptLevel));
 }
-
 
 void setFunctionAttributes(StringRef cpu, StringRef features, Module &module) {
   for (auto &fn : module) {
@@ -202,38 +200,32 @@ void setFunctionAttributes(StringRef cpu, StringRef features, Module &module) {
 }
 
 void populatePassManager(legacy::PassManager &pm,
-                         legacy::FunctionPassManager &fpm,
                          Module &module,
                          TargetMachine &targetMachine,
-                         unsigned int optLevel,
-                         unsigned int sizeLevel) {
+                         const CompilationConfiguration &config) {
   TargetLibraryInfoImpl tlii(Triple(module.getTargetTriple()));
-  fpm.add(createTargetTransformInfoWrapperPass(targetMachine.getTargetIRAnalysis()));
   pm.add(new TargetLibraryInfoWrapperPass(tlii));
   pm.add(createInternalizePass());
   PassManagerBuilder Builder;
-  Builder.OptLevel = optLevel;
-  Builder.SizeLevel = sizeLevel;
-  if (optLevel > 1) {
+  Builder.OptLevel = config.optLevel;
+  Builder.SizeLevel = config.sizeLevel;
+  if (config.optLevel > 1) {
     Builder.Inliner = createFunctionInliningPass();
   } else {
     Builder.Inliner = createAlwaysInlinerLegacyPass();
   }
-  Builder.DisableUnrollLoops = optLevel == 0;
-  Builder.LoopVectorize = optLevel > 1 && sizeLevel < 2;
-  Builder.SLPVectorize = optLevel > 1 && sizeLevel < 2;
+  Builder.DisableUnrollLoops = config.optLevel == 0;
+  Builder.LoopVectorize = config.optLevel > 1 && config.sizeLevel < 2;
+  Builder.SLPVectorize = config.optLevel > 1 && config.sizeLevel < 2;
   Builder.LibraryInfo = new TargetLibraryInfoImpl(targetMachine.getTargetTriple());
   targetMachine.adjustPassManager(Builder);
 
-  Builder.populateFunctionPassManager(fpm);
   Builder.populateModulePassManager(pm);
   Builder.populateLTOPassManager(pm);
 }
 
-}
-
 // Mostly copy'n'paste from opt and llc for now.
-static void initLLVM(PassRegistry *registry) {
+void initLLVM(PassRegistry *registry) {
   InitializeAllTargets();
   InitializeAllTargetMCs();
   InitializeAllAsmPrinters();
@@ -277,7 +269,7 @@ static void initLLVM(PassRegistry *registry) {
   initializeScavengerTestPass(*registry);
 }
 
-static void DiagnosticHandler(const DiagnosticInfo &DI, void *Context) {
+void DiagnosticHandler(const DiagnosticInfo &DI, void *Context) {
   bool *HasError = static_cast<bool *>(Context);
   if (DI.getSeverity() == DS_Error)
     *HasError = true;
@@ -286,10 +278,12 @@ static void DiagnosticHandler(const DiagnosticInfo &DI, void *Context) {
     if (!Remark->isEnabled())
       return;
 
-  DiagnosticPrinterRawOStream DP(log::error());
-  log::error() << LLVMContext::getDiagnosticMessagePrefix(DI.getSeverity()) << ": ";
+  DiagnosticPrinterRawOStream DP(logging::error());
+  logging::error() << LLVMContext::getDiagnosticMessagePrefix(DI.getSeverity()) << ": ";
   DI.print(DP);
-  log::error() << "\n";
+  logging::error() << "\n";
+}
+
 }
 
 class CodeGenerator {
@@ -297,58 +291,46 @@ class CodeGenerator {
   CodeGenerator(Module &module, TargetMachine &targetMachine, tool_output_file &out)
       : module(module), targetMachine(targetMachine), out(out) {}
 
-  void run(unsigned int optLevel, unsigned int sizeLevel, int outputKind) {
+  void run(CompilationConfiguration &config) {
     setFunctionAttributes(targetMachine.getTargetCPU(), targetMachine.getTargetFeatureString(), module);
 
     // Use legacy pass manager for now.
     legacy::PassManager pm;
     auto manager = new legacy::FunctionPassManager(&module);
     std::unique_ptr<legacy::FunctionPassManager> functionPasses(manager);
-    populatePassManager(pm, *functionPasses, module, targetMachine, optLevel, sizeLevel);
+    populatePassManager(pm, module, targetMachine, config);
 
-//    functionPasses->doInitialization();
-//    for (Function &F : module)
-//      functionPasses->run(F);
-//    functionPasses->doFinalization();
-
-    switch (outputKind) {
-      case OUTPUT_KIND_BITCODE:
-        pm.add(createPrintModulePass(out.os(), "", true));
+    switch (config.outputKind) {
+      case OUTPUT_KIND_BITCODE:pm.add(createPrintModulePass(out.os(), "", true));
         break;
-      case OUTPUT_KIND_OBJECT_FILE:
-        targetMachine.addPassesToEmitFile(pm, out.os(), TargetMachine::CGFT_ObjectFile);
+      case OUTPUT_KIND_OBJECT_FILE:targetMachine.addPassesToEmitFile(pm, out.os(), TargetMachine::CGFT_ObjectFile);
         break;
-      default:
-        log::error() << "Unknown outputKind: " << outputKind << "\n";
     }
     pm.run(module);
   }
  private:
-  Module& module;
-  TargetMachine& targetMachine;
-  tool_output_file& out;
+  Module &module;
+  TargetMachine &targetMachine;
+  tool_output_file &out;
 };
 
 extern "C" {
 // TODO: Pick better name.
 // TODO: Pass libraries as array.
-// TODO: Pass outputKind as enum
 int LLVMLtoCodegen(LLVMContextRef contextRef,
                    LLVMModuleRef programModuleRef,
                    LLVMModuleRef runtimeModuleRef,
                    LLVMModuleRef stdlibModuleRef,
-                   int outputKind,
-                   const char *filename,
-                   int optLevel,
-                   int sizeLevel,
-                   int shouldProfile) {
-  TimePassesIsEnabled = static_cast<bool>(shouldProfile);
+                   CompilationConfiguration compilationConfiguration) {
+
+  // LLVM global variable that enables profiling.
+  TimePassesIsEnabled = static_cast<bool>(compilationConfiguration.shouldProfile);
   std::error_code EC;
   sys::fs::OpenFlags OpenFlags = sys::fs::F_None;
-  auto p = new tool_output_file(filename, EC, OpenFlags);
+  auto p = new tool_output_file(compilationConfiguration.fileName, EC, OpenFlags);
   std::unique_ptr<tool_output_file> output(p);
   if (EC) {
-    log::error() << EC.message();
+    logging::error() << EC.message();
     return 1;
   }
 
@@ -357,38 +339,32 @@ int LLVMLtoCodegen(LLVMContextRef contextRef,
   bool HasError = false;
   context->setDiagnosticHandler(DiagnosticHandler, &HasError);
 
-  PassRegistry *passRegistry = PassRegistry::getPassRegistry();
-  initLLVM(passRegistry);
+  initLLVM(PassRegistry::getPassRegistry());
 
-  // Should copy target triple because runtimeModule will be disposed by linker.
-  std::string targetTriple = LLVMGetTarget(runtimeModuleRef);
-  auto module = linkModules(*context, programModuleRef, runtimeModuleRef, stdlibModuleRef,
-                            static_cast<bool>(shouldProfile));
+  auto module = linkModules(*context, programModuleRef, runtimeModuleRef, stdlibModuleRef);
   if (module == nullptr) {
-    log::error() << "Module linkage failed.\n";
+    logging::error() << "Module linkage failed.\n";
     return 1;
   }
   // Now program module contains everything that we need to produce object file.
-  auto targetMachine = createTargetMachine(targetTriple, optLevel);
+  std::string targetTriple(compilationConfiguration.targetTriple);
+  auto targetMachine = createTargetMachine(targetTriple, compilationConfiguration);
   if (targetMachine == nullptr) {
-    log::error() << "Cannot create target machine.\n";
+    logging::error() << "Cannot create target machine.\n";
     return 1;
   }
   module->setDataLayout(targetMachine->createDataLayout());
 
-  CodeGenerator(*module, *targetMachine, *output).run(
-      static_cast<unsigned int>(optLevel),
-      static_cast<unsigned int>(sizeLevel),
-      outputKind
-  );
+  CodeGenerator(*module, *targetMachine, *output).run(compilationConfiguration);
 
   if (*static_cast<bool *>(context->getDiagnosticContext())) {
-    log::error() << "LLVM Pass Manager failed.\n";
+    logging::error() << "LLVM Pass Manager failed.\n";
     return 1;
   }
   output->keep();
+  // Print profiling report.
   reportAndResetTimings();
-  log::debug() << "Bitcode compilation is complete.\n";
+  logging::debug() << "Bitcode compilation is complete.\n";
   return 0;
 }
 

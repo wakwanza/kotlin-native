@@ -1,6 +1,6 @@
 package org.jetbrains.kotlin.backend.konan.llvm.codegen
 
-import kotlinx.cinterop.toByte
+import kotlinx.cinterop.*
 import llvm.*
 import org.jetbrains.kotlin.backend.konan.Context
 import org.jetbrains.kotlin.backend.konan.KonanPhase
@@ -9,7 +9,7 @@ import org.jetbrains.kotlin.backend.konan.library.KonanLibraryReader
 import org.jetbrains.kotlin.backend.konan.llvm.parseBitcodeFile
 import org.jetbrains.kotlin.konan.target.CompilerOutputKind
 
-internal fun lto(context: Context): String {
+internal fun lto(context: Context) {
     val phaser = PhaseManager(context)
     val libraries = context.llvm.librariesToLink
     val programModule = context.llvmModule!!
@@ -31,29 +31,33 @@ internal fun lto(context: Context): String {
         }
     }
 
-    val optLevel = if (context.shouldOptimize()) 3 else 1
-    val sizeLevel = 0
+
     val llvmContext = LLVMGetModuleContext(context.llvmModule)
 
-    val (outputKind, filename) = if (context.config.produce == CompilerOutputKind.BITCODE) {
-        Pair(OUTPUT_KIND_BITCODE, "result.ll")
-    } else {
-        Pair(OUTPUT_KIND_OBJECT_FILE, "result.o")
-    }
-
     phaser.phase(KonanPhase.NEXTGEN) {
-        if (LLVMLtoCodegen(
-                        llvmContext,
-                        programModule,
-                        runtime.llvmModule,
-                        stdlibModule,
-                        outputKind,
-                        filename,
-                        optLevel,
-                        sizeLevel,
-                        if (context.shouldProfilePhases()) 1 else 0) != 0) {
-            context.log { "Codegen failed" }
+        memScoped {
+            val configuration = alloc<CompilationConfiguration>()
+            val (outputKind, filename) = if (context.config.produce == CompilerOutputKind.BITCODE) {
+                Pair(OutputKind.OUTPUT_KIND_BITCODE, context.config.outputFile)
+            } else {
+                Pair(OutputKind.OUTPUT_KIND_OBJECT_FILE, "result.o")
+            }
+            configuration.optLevel = if (context.shouldOptimize()) 3 else 1
+            configuration.sizeLevel = 0
+            configuration.outputKind = outputKind
+            configuration.shouldProfile = if (context.shouldProfilePhases()) 1 else 0
+            configuration.fileName = filename.cstr.ptr
+            configuration.targetTriple = LLVMGetTarget(runtime.llvmModule)
+
+            if (LLVMLtoCodegen(
+                            llvmContext,
+                            programModule,
+                            runtime.llvmModule,
+                            stdlibModule,
+                            configuration.readValue()
+                    ) != 0) {
+                context.log { "Codegen failed" }
+            }
         }
     }
-    return filename
 }

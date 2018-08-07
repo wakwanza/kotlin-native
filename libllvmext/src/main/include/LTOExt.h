@@ -23,19 +23,25 @@
 extern "C" {
 #endif
 
-// TODO: change to enum
-const int OUTPUT_KIND_OBJECT_FILE = 0;
-const int OUTPUT_KIND_BITCODE = 1;
+typedef enum {
+  OUTPUT_KIND_OBJECT_FILE,
+  OUTPUT_KIND_BITCODE
+} OutputKind;
+
+typedef struct {
+  int optLevel;
+  int sizeLevel;
+  int shouldProfile;
+  const char* fileName;
+  OutputKind outputKind;
+  const char* targetTriple;
+} CompilationConfiguration;
 
 int LLVMLtoCodegen(LLVMContextRef contextRef,
                    LLVMModuleRef programModuleRef,
                    LLVMModuleRef runtimeModuleRef,
                    LLVMModuleRef stdlibModuleRef,
-                   int outputKind,
-                   const char *filename,
-                   int optLevel,
-                   int sizeLevel,
-                   int shouldProfile);
+                   CompilationConfiguration compilationConfiguration);
 
 #ifdef __cplusplus
 }
