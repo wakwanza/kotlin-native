@@ -21,6 +21,17 @@ bool KotlinNativeLlvmBackend::compile(std::unique_ptr<Module> module, raw_pwrite
   }
   module->setDataLayout(targetMachine->createDataLayout());
 
+  // Preparation passes.
+  legacy::PassManager preparationPasses;
+  preparationPasses.add(
+      createTargetTransformInfoWrapperPass(targetMachine->getTargetIRAnalysis()));
+
+  preparationPasses.add(createInternalizePass());
+  preparationPasses.add(createEliminateAvailableExternallyPass());
+  preparationPasses.add(createGlobalDCEPass());
+
+  preparationPasses.run(*module);
+
   legacy::PassManager modulePasses;
   modulePasses.add(
       createTargetTransformInfoWrapperPass(targetMachine->getTargetIRAnalysis()));
@@ -96,10 +107,14 @@ TargetMachine::CodeGenFileType KotlinNativeLlvmBackend::getCodeGenFileType() {
 
 CodeGenOpt::Level KotlinNativeLlvmBackend::getCodegenOptLevel() {
   switch (config.optLevel) {
-    case 0:return CodeGenOpt::Level::None;
-    case 1:return CodeGenOpt::Level::Less;
-    case 2:return CodeGenOpt::Level::Default;
-    case 3:return CodeGenOpt::Level::Aggressive;
+    case 0:
+      return CodeGenOpt::Level::None;
+    case 1:
+      return CodeGenOpt::Level::Less;
+    case 2:
+      return CodeGenOpt::Level::Default;
+    case 3:
+      return CodeGenOpt::Level::Aggressive;
   }
 }
 
@@ -124,6 +139,7 @@ void KotlinNativeLlvmBackend::createPasses(legacy::PassManager &modulePasses,
   passManagerBuilder.SLPVectorize = optLevel > 1;
   passManagerBuilder.LoopVectorize = optLevel > 1;
   passManagerBuilder.PrepareForLTO = optLevel > 1;
+  passManagerBuilder.PrepareForThinLTO = optLevel > 1;
 
   modulePasses.add(new TargetLibraryInfoWrapperPass(*tlii));
 
@@ -135,4 +151,5 @@ void KotlinNativeLlvmBackend::createPasses(legacy::PassManager &modulePasses,
   }
   passManagerBuilder.populateFunctionPassManager(functionPasses);
   passManagerBuilder.populateModulePassManager(modulePasses);
+  passManagerBuilder.populateLTOPassManager(modulePasses);
 }
