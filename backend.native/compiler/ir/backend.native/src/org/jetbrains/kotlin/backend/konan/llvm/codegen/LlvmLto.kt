@@ -32,6 +32,8 @@ internal fun lto(context: Context, phaser: PhaseManager) {
 
     val llvmContext = LLVMGetModuleContext(context.llvmModule)
 
+    fun Boolean.toInt() = if (this) 1 else 0
+
     phaser.phase(KonanPhase.NEXTGEN) {
         val target = LLVMGetTarget(runtime.llvmModule)!!.toKString()
         val llvmRelocMode = if (context.config.produce == CompilerOutputKind.PROGRAM) LLVMRelocMode.LLVMRelocStatic else LLVMRelocMode.LLVMRelocPIC
@@ -44,14 +46,15 @@ internal fun lto(context: Context, phaser: PhaseManager) {
                 Pair(OutputKind.OUTPUT_KIND_OBJECT_FILE, context.mergedObject.absolutePath)
             }
             configuration.apply {
-                optLevel = if (context.shouldOptimize()) 3 else 1
+                optLevel = context.shouldOptimize().toInt()
                 sizeLevel = 0
                 this.outputKind = outputKind
-                shouldProfile = if (context.shouldProfilePhases()) 1 else 0
+                shouldProfile = context.shouldProfilePhases().toInt()
                 fileName = filename.cstr.ptr
                 targetTriple = target.cstr.ptr
                 relocMode = llvmRelocMode
                 shouldPerformLto = 0
+                shouldPreserveDebugInfo = context.shouldContainDebugInfo().toInt()
             }
 
             if (LLVMLtoCodegen(

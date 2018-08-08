@@ -15,7 +15,7 @@
  */
 
 #include "LTOExt.h"
-#include "utility.h"
+#include "CodeGen.h"
 
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/TargetSelect.h>
@@ -43,11 +43,6 @@
 #include <ctime>
 
 using namespace llvm;
-
-// TODO: wrap with ifdef
-constexpr bool debug = true;
-
-// Different logging streams.
 
 class ModuleLinker {
  public:
@@ -105,85 +100,6 @@ static std::unique_ptr<Module> linkModules(LLVMContext &context,
   return std::move(linker.mergedModule);
 }
 
-namespace {
-// TODO: populate
-TargetOptions createTargetOptions() {
-  TargetOptions options;
-  return options;
-}
-
-// TODO: add blows and whistles
-std::unique_ptr<TargetMachine> createTargetMachine(const std::string &tripleString, CompilationConfiguration config) {
-
-  Triple triple(tripleString);
-
-  std::string errorMsg;
-  const Target *target = TargetRegistry::lookupTarget(tripleString, errorMsg);
-  if (!target) {
-    logging::error() << errorMsg;
-    return nullptr;
-  }
-
-  // Should be improved. If target is host then in should be `sys::getHostCPUName()`.
-  std::string cpu = "";
-  if (cpu.empty() && triple.isOSDarwin()) {
-    if (triple.getArch() == llvm::Triple::x86_64)
-      cpu = "core2";
-    else if (triple.getArch() == llvm::Triple::x86)
-      cpu = "yonah";
-    else if (triple.getArch() == llvm::Triple::aarch64)
-      cpu = "cyclone";
-  }
-
-  SubtargetFeatures features("");
-  features.getDefaultSubtargetFeatures(triple);
-  StringMap<bool> HostFeatures;
-  if (sys::getHostCPUFeatures(HostFeatures))
-    for (auto &F : HostFeatures)
-      features.AddFeature(F.first(), F.second);
-
-  const TargetOptions &options = createTargetOptions();
-
-  Optional<Reloc::Model> relocModel;
-  switch (config.relocMode) {
-    case LLVMRelocDefault:
-      relocModel = None;
-      break;
-    case LLVMRelocStatic:
-      relocModel = Reloc::Model::Static;
-      break;
-    case LLVMRelocPIC:
-      relocModel = Reloc::Model::PIC_;
-      break;
-    case LLVMRelocDynamicNoPic:
-      relocModel = Reloc::Model::DynamicNoPIC;
-      break;
-  }
-
-  CodeGenOpt::Level codeGenOptLevel;
-  switch (config.optLevel) {
-    case 0: codeGenOptLevel = CodeGenOpt::None;
-      break;
-    case 1: codeGenOptLevel = CodeGenOpt::Less;
-      break;
-    case 2: codeGenOptLevel = CodeGenOpt::Default;
-      break;
-    case 3: codeGenOptLevel = CodeGenOpt::Aggressive;
-      break;
-    default:logging::error() << "Unsupported opt level: " << config.optLevel << "\n";
-      return nullptr;
-  }
-
-  return std::unique_ptr<TargetMachine>(
-      target->createTargetMachine(tripleString,
-                                  cpu,
-                                  features.getString(),
-                                  options,
-                                  relocModel,
-                                  CodeModel::Default,
-                                  codeGenOptLevel));
-}
-
 void setFunctionAttributes(StringRef cpu, StringRef features, Module &module) {
   for (auto &fn : module) {
     auto &context = fn.getContext();
@@ -196,33 +112,6 @@ void setFunctionAttributes(StringRef cpu, StringRef features, Module &module) {
       newAttrs.addAttribute("target-features", features);
 
     fn.setAttributes(Attrs.addAttributes(context, AttributeList::FunctionIndex, newAttrs));
-  }
-}
-
-void populatePassManager(legacy::PassManager &pm,
-                         Module &module,
-                         TargetMachine &targetMachine,
-                         const CompilationConfiguration &config) {
-  TargetLibraryInfoImpl tlii(Triple(module.getTargetTriple()));
-  pm.add(new TargetLibraryInfoWrapperPass(tlii));
-  pm.add(createInternalizePass());
-  PassManagerBuilder Builder;
-  Builder.OptLevel = config.optLevel;
-  Builder.SizeLevel = config.sizeLevel;
-  if (config.optLevel > 1) {
-    Builder.Inliner = createFunctionInliningPass();
-  } else {
-    Builder.Inliner = createAlwaysInlinerLegacyPass();
-  }
-  Builder.DisableUnrollLoops = config.optLevel == 0;
-  Builder.LoopVectorize = config.optLevel > 1 && config.sizeLevel < 2;
-  Builder.SLPVectorize = config.optLevel > 1 && config.sizeLevel < 2;
-  Builder.LibraryInfo = new TargetLibraryInfoImpl(targetMachine.getTargetTriple());
-  Builder.populateModulePassManager(pm);
-  targetMachine.adjustPassManager(Builder);
-
-  if (config.shouldPerformLto) {
-    Builder.populateLTOPassManager(pm);
   }
 }
 
@@ -286,34 +175,6 @@ void DiagnosticHandler(const DiagnosticInfo &DI, void *Context) {
   logging::error() << "\n";
 }
 
-}
-
-class CodeGenerator {
- public:
-  CodeGenerator(Module &module, TargetMachine &targetMachine, tool_output_file &out)
-      : module(module), targetMachine(targetMachine), out(out) {}
-
-  void run(CompilationConfiguration &config) {
-    setFunctionAttributes(targetMachine.getTargetCPU(), targetMachine.getTargetFeatureString(), module);
-
-    // Use legacy pass manager for now.
-    legacy::PassManager pm;
-    populatePassManager(pm, module, targetMachine, config);
-
-    switch (config.outputKind) {
-      case OUTPUT_KIND_BITCODE:pm.add(createPrintModulePass(out.os(), "", true));
-        break;
-      case OUTPUT_KIND_OBJECT_FILE:targetMachine.addPassesToEmitFile(pm, out.os(), TargetMachine::CGFT_ObjectFile);
-        break;
-    }
-    pm.run(module);
-  }
- private:
-  Module &module;
-  TargetMachine &targetMachine;
-  tool_output_file &out;
-};
-
 extern "C" {
 // TODO: Pick better name.
 // TODO: Pass libraries as array.
@@ -346,16 +207,9 @@ int LLVMLtoCodegen(LLVMContextRef contextRef,
     logging::error() << "Module linkage failed.\n";
     return 1;
   }
-  // Now program module contains everything that we need to produce object file.
-  std::string targetTriple(compilationConfiguration.targetTriple);
-  auto targetMachine = createTargetMachine(targetTriple, compilationConfiguration);
-  if (targetMachine == nullptr) {
-    logging::error() << "Cannot create target machine.\n";
-    return 1;
-  }
-  module->setDataLayout(targetMachine->createDataLayout());
 
-  CodeGenerator(*module, *targetMachine, *output).run(compilationConfiguration);
+  KotlinNativeLlvmBackend backend(compilationConfiguration);
+  backend.compile(std::move(module), output->os());
 
   if (*static_cast<bool *>(context->getDiagnosticContext())) {
     logging::error() << "LLVM Pass Manager failed.\n";

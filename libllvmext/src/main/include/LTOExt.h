@@ -38,6 +38,7 @@ typedef struct {
   const char *targetTriple;
   LLVMRelocMode relocMode;
   int shouldPerformLto;
+  int shouldPreserveDebugInfo;
 } CompilationConfiguration;
 
 int LLVMLtoCodegen(LLVMContextRef contextRef,
