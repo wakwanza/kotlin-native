@@ -227,25 +227,22 @@ internal class LinkStage(val context: Context, val phaser: PhaseManager) {
         val phaser = PhaseManager(context)
         if (context.shouldUseNewPipeline()) {
             objectFiles += context.mergedObject.absolutePath
-            phaser.phase(KonanPhase.LINKER) {
-                link(objectFiles, includedBinaries, libraryProvidedLinkerFlags)
+        } else {
+            phaser.phase(KonanPhase.OBJECT_FILES) {
+                val emitted = context.bitcodeFileName
+                val bitcodeFiles = listOf(emitted) +
+                        libraries.map { it.bitcodePaths }.flatten()
+                objectFiles.add(
+                        when (platform.configurables) {
+                            is WasmConfigurables
+                            -> bitcodeToWasm(bitcodeFiles)
+                            is ZephyrConfigurables
+                            -> llvmLinkAndLlc(bitcodeFiles)
+                            else
+                            -> llvmLto(bitcodeFiles)
+                        }
+                )
             }
-            return
-        }
-        phaser.phase(KonanPhase.OBJECT_FILES) {
-            val emitted = context.bitcodeFileName
-            val bitcodeFiles = listOf(emitted) +
-                    libraries.map { it.bitcodePaths }.flatten()
-            objectFiles.add(
-                    when (platform.configurables) {
-                        is WasmConfigurables
-                        -> bitcodeToWasm(bitcodeFiles)
-                        is ZephyrConfigurables
-                        -> llvmLinkAndLlc(bitcodeFiles)
-                        else
-                        -> llvmLto(bitcodeFiles)
-                    }
-            )
         }
         phaser.phase(KonanPhase.LINKER) {
             link(objectFiles, includedBinaries, libraryProvidedLinkerFlags)

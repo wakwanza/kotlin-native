@@ -51,6 +51,7 @@ import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
 import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.konan.target.CompilerOutputKind
+import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.metadata.KonanLinkData
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.psi2ir.generators.GeneratorContext
@@ -495,7 +496,13 @@ internal class Context(config: KonanConfig) : KonanBackendContext(config) {
 
     fun shouldOptimize() = config.configuration.getBoolean(KonanConfigKeys.OPTIMIZATION)
 
-    fun shouldUseNewPipeline() = config.configuration.getBoolean(KonanConfigKeys.NEW_PIPELINE)
+    fun shouldUseNewPipeline(): Boolean {
+        val kind = config.configuration.get(KonanConfigKeys.PRODUCE)
+        val goodKind = kind == CompilerOutputKind.DYNAMIC
+                || kind == CompilerOutputKind.STATIC
+                || kind == CompilerOutputKind.PROGRAM
+        return config.target != KonanTarget.WASM32 && goodKind
+    }
 
     fun shouldGenerateTestRunner() =
             config.configuration.getBoolean(KonanConfigKeys.GENERATE_TEST_RUNNER)

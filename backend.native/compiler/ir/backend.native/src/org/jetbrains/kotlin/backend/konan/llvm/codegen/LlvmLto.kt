@@ -15,13 +15,14 @@ internal fun lto(context: Context, phaser: PhaseManager) {
     val runtime = context.llvm.runtime
 
     fun stdlibPredicate(libraryReader: KonanLibraryReader) = libraryReader.uniqueName == "stdlib"
-    val stdlibModule = parseBitcodeFile(libraries.first(::stdlibPredicate).bitcodePaths.first { it.endsWith("program.kt.bc") })
+    val stdlibPath = libraries.first(::stdlibPredicate).bitcodePaths.first { it.endsWith("program.kt.bc") }
+    val stdlibModule = parseBitcodeFile(stdlibPath)
+    val otherModules = libraries.filterNot(::stdlibPredicate).flatMap { it.bitcodePaths }
 
     val nativeLibraries =
-            context.config.nativeLibraries +
-                    context.config.defaultNativeLibraries
+            context.config.nativeLibraries + context.config.defaultNativeLibraries
     phaser.phase(KonanPhase.BITCODE_LINKER) {
-        for (library in nativeLibraries) {
+        for (library in nativeLibraries + otherModules) {
             val libraryModule = parseBitcodeFile(library)
             val failed = LLVMLinkModules2(programModule, libraryModule)
             if (failed != 0) {
@@ -46,7 +47,7 @@ internal fun lto(context: Context, phaser: PhaseManager) {
             }
             configuration.apply {
                 optLevel = if (context.shouldOptimize()) 3 else 1
-                sizeLevel = 0
+                sizeLevel = 0 // TODO: make target dependent
                 this.outputKind = outputKind
                 shouldProfile = context.shouldProfilePhases().toInt()
                 fileName = filename.cstr.ptr
