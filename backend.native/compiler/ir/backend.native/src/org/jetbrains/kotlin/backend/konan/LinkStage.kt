@@ -226,7 +226,7 @@ internal class LinkStage(val context: Context, val phaser: PhaseManager) {
 
         val phaser = PhaseManager(context)
         if (context.shouldUseNewPipeline()) {
-            objectFiles += "result.o"
+            objectFiles += context.mergedObject.absolutePath
             phaser.phase(KonanPhase.LINKER) {
                 link(objectFiles, includedBinaries, libraryProvidedLinkerFlags)
             }

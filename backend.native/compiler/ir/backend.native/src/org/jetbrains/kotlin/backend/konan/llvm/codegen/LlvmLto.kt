@@ -9,8 +9,7 @@ import org.jetbrains.kotlin.backend.konan.library.KonanLibraryReader
 import org.jetbrains.kotlin.backend.konan.llvm.parseBitcodeFile
 import org.jetbrains.kotlin.konan.target.CompilerOutputKind
 
-internal fun lto(context: Context) {
-    val phaser = PhaseManager(context)
+internal fun lto(context: Context, phaser: PhaseManager) {
     val libraries = context.llvm.librariesToLink
     val programModule = context.llvmModule!!
     val runtime = context.llvm.runtime
@@ -21,7 +20,7 @@ internal fun lto(context: Context) {
     val nativeLibraries =
             context.config.nativeLibraries +
                     context.config.defaultNativeLibraries
-    PhaseManager(context).phase(KonanPhase.BITCODE_LINKER) {
+    phaser.phase(KonanPhase.BITCODE_LINKER) {
         for (library in nativeLibraries) {
             val libraryModule = parseBitcodeFile(library)
             val failed = LLVMLinkModules2(programModule, libraryModule)
@@ -31,23 +30,29 @@ internal fun lto(context: Context) {
         }
     }
 
-
     val llvmContext = LLVMGetModuleContext(context.llvmModule)
 
     phaser.phase(KonanPhase.NEXTGEN) {
+        val target = LLVMGetTarget(runtime.llvmModule)!!.toKString()
+        val llvmRelocMode = if (context.config.produce == CompilerOutputKind.PROGRAM) LLVMRelocMode.LLVMRelocStatic else LLVMRelocMode.LLVMRelocPIC
         memScoped {
             val configuration = alloc<CompilationConfiguration>()
             val (outputKind, filename) = if (context.config.produce == CompilerOutputKind.BITCODE) {
-                Pair(OutputKind.OUTPUT_KIND_BITCODE, context.config.outputFile)
+                Pair(OutputKind.OUTPUT_KIND_BITCODE, "bitcode.ll")
             } else {
-                Pair(OutputKind.OUTPUT_KIND_OBJECT_FILE, "result.o")
+                context.mergedObject = context.config.tempFiles.create("merged", ".o")
+                Pair(OutputKind.OUTPUT_KIND_OBJECT_FILE, context.mergedObject.absolutePath)
             }
-            configuration.optLevel = if (context.shouldOptimize()) 3 else 1
-            configuration.sizeLevel = 0
-            configuration.outputKind = outputKind
-            configuration.shouldProfile = if (context.shouldProfilePhases()) 1 else 0
-            configuration.fileName = filename.cstr.ptr
-            configuration.targetTriple = LLVMGetTarget(runtime.llvmModule)
+            configuration.apply {
+                optLevel = if (context.shouldOptimize()) 3 else 1
+                sizeLevel = 0
+                this.outputKind = outputKind
+                shouldProfile = if (context.shouldProfilePhases()) 1 else 0
+                fileName = filename.cstr.ptr
+                targetTriple = target.cstr.ptr
+                relocMode = llvmRelocMode
+                shouldPerformLto = 0
+            }
 
             if (LLVMLtoCodegen(
                             llvmContext,

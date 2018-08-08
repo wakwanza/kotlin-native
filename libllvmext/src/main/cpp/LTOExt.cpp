@@ -15,6 +15,7 @@
  */
 
 #include "LTOExt.h"
+#include "utility.h"
 
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/TargetSelect.h>
@@ -33,7 +34,6 @@
 #include <llvm/IR/DiagnosticPrinter.h>
 #include <llvm/CodeGen/Passes.h>
 #include <llvm/Support/ToolOutputFile.h>
-#include <llvm/Support/raw_ostream.h>
 #include <llvm/Analysis/TargetTransformInfo.h>
 #include <llvm/IR/IRPrintingPasses.h>
 #include <llvm/MC/SubtargetFeature.h>
@@ -48,23 +48,6 @@ using namespace llvm;
 constexpr bool debug = true;
 
 // Different logging streams.
-namespace logging {
-raw_ostream &info() {
-  return outs();
-}
-
-raw_ostream &debug() {
-  if (debug) {
-    return outs();
-  } else {
-    return nulls();
-  }
-}
-
-raw_ostream &error() {
-  return errs();
-}
-}
 
 class ModuleLinker {
  public:
@@ -131,18 +114,18 @@ TargetOptions createTargetOptions() {
 
 // TODO: add blows and whistles
 std::unique_ptr<TargetMachine> createTargetMachine(const std::string &tripleString, CompilationConfiguration config) {
-  std::string errorMsg;
 
   Triple triple(tripleString);
 
+  std::string errorMsg;
   const Target *target = TargetRegistry::lookupTarget(tripleString, errorMsg);
   if (!target) {
     logging::error() << errorMsg;
     return nullptr;
   }
 
-  // TODO: Add support for cross-compilation
-  std::string cpu = sys::getHostCPUName();
+  // Should be improved. If target is host then in should be `sys::getHostCPUName()`.
+  std::string cpu = "";
   if (cpu.empty() && triple.isOSDarwin()) {
     if (triple.getArch() == llvm::Triple::x86_64)
       cpu = "core2";
@@ -158,8 +141,24 @@ std::unique_ptr<TargetMachine> createTargetMachine(const std::string &tripleStri
   if (sys::getHostCPUFeatures(HostFeatures))
     for (auto &F : HostFeatures)
       features.AddFeature(F.first(), F.second);
+
   const TargetOptions &options = createTargetOptions();
-  Reloc::Model relocModel = Reloc::Model::Static;
+
+  Optional<Reloc::Model> relocModel;
+  switch (config.relocMode) {
+    case LLVMRelocDefault:
+      relocModel = None;
+      break;
+    case LLVMRelocStatic:
+      relocModel = Reloc::Model::Static;
+      break;
+    case LLVMRelocPIC:
+      relocModel = Reloc::Model::PIC_;
+      break;
+    case LLVMRelocDynamicNoPic:
+      relocModel = Reloc::Model::DynamicNoPIC;
+      break;
+  }
 
   CodeGenOpt::Level codeGenOptLevel;
   switch (config.optLevel) {
@@ -174,6 +173,7 @@ std::unique_ptr<TargetMachine> createTargetMachine(const std::string &tripleStri
     default:logging::error() << "Unsupported opt level: " << config.optLevel << "\n";
       return nullptr;
   }
+
   return std::unique_ptr<TargetMachine>(
       target->createTargetMachine(tripleString,
                                   cpu,
@@ -218,10 +218,12 @@ void populatePassManager(legacy::PassManager &pm,
   Builder.LoopVectorize = config.optLevel > 1 && config.sizeLevel < 2;
   Builder.SLPVectorize = config.optLevel > 1 && config.sizeLevel < 2;
   Builder.LibraryInfo = new TargetLibraryInfoImpl(targetMachine.getTargetTriple());
+  Builder.populateModulePassManager(pm);
   targetMachine.adjustPassManager(Builder);
 
-  Builder.populateModulePassManager(pm);
-  Builder.populateLTOPassManager(pm);
+  if (config.shouldPerformLto) {
+    Builder.populateLTOPassManager(pm);
+  }
 }
 
 // Mostly copy'n'paste from opt and llc for now.
@@ -296,8 +298,6 @@ class CodeGenerator {
 
     // Use legacy pass manager for now.
     legacy::PassManager pm;
-    auto manager = new legacy::FunctionPassManager(&module);
-    std::unique_ptr<legacy::FunctionPassManager> functionPasses(manager);
     populatePassManager(pm, module, targetMachine, config);
 
     switch (config.outputKind) {

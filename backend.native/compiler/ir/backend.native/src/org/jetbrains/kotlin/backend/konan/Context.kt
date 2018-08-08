@@ -49,6 +49,7 @@ import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
+import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.konan.target.CompilerOutputKind
 import org.jetbrains.kotlin.metadata.KonanLinkData
 import org.jetbrains.kotlin.name.FqName
@@ -511,5 +512,8 @@ internal class Context(config: KonanConfig) : KonanBackendContext(config) {
         val kind = config.configuration.get(KonanConfigKeys.PRODUCE)
         kind == CompilerOutputKind.DYNAMIC || kind == CompilerOutputKind.STATIC
     }
+
+    // Initialized in case of default compilation mode.
+    lateinit var mergedObject: File
 }
 

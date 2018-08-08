@@ -18,6 +18,7 @@
 #define SRC_LTOEXT_H
 
 #include <llvm-c/Core.h>
+#include <llvm-c/TargetMachine.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,9 +33,11 @@ typedef struct {
   int optLevel;
   int sizeLevel;
   int shouldProfile;
-  const char* fileName;
+  const char *fileName;
   OutputKind outputKind;
-  const char* targetTriple;
+  const char *targetTriple;
+  LLVMRelocMode relocMode;
+  int shouldPerformLto;
 } CompilationConfiguration;
 
 int LLVMLtoCodegen(LLVMContextRef contextRef,

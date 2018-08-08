@@ -16,7 +16,6 @@
 
 package org.jetbrains.kotlin.backend.konan
 
-import org.jetbrains.kotlin.backend.common.validateIrModule
 import org.jetbrains.kotlin.backend.konan.ir.KonanSymbols
 import org.jetbrains.kotlin.backend.konan.ir.ModuleIndex
 import org.jetbrains.kotlin.backend.konan.llvm.codegen.lto
@@ -26,8 +25,6 @@ import org.jetbrains.kotlin.backend.konan.serialization.markBackingFields
 import org.jetbrains.kotlin.cli.common.messages.AnalyzerWithCompilerReport
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
-import org.jetbrains.kotlin.config.CompilerConfigurationKey
-import org.jetbrains.kotlin.config.kotlinSourceRoots
 import org.jetbrains.kotlin.config.languageVersionSettings
 import org.jetbrains.kotlin.psi2ir.Psi2IrConfiguration
 import org.jetbrains.kotlin.psi2ir.Psi2IrTranslator
@@ -102,7 +99,7 @@ fun runTopLevelPhases(konanConfig: KonanConfig, environment: KotlinCoreEnvironme
         phaser.phase(KonanPhase.BITCODE) {
             emitLLVM(context, phaser)
             if (context.shouldUseNewPipeline()) {
-                lto(context)
+                lto(context, phaser)
             } else {
                 produceOutput(context, phaser)
             }

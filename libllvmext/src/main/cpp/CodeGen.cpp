@@ -13,8 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <CodeGen.h>
+
 #include "CodeGen.h"
 
-//int compileModule(Module& module) {
-//
-//}
+int compileModule(Module &module, const CompilationConfiguration &config) {
+
+}
