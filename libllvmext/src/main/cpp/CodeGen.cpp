@@ -21,7 +21,7 @@ bool KotlinNativeLlvmBackend::compile(std::unique_ptr<Module> module, raw_pwrite
   }
   module->setDataLayout(targetMachine->createDataLayout());
 
-  // Preparation passes.
+  // Preparation passes. Right after linkage we have a lot of unused symbols. Lets strip them.
   legacy::PassManager preparationPasses;
   preparationPasses.add(
       createTargetTransformInfoWrapperPass(targetMachine->getTargetIRAnalysis()));
@@ -29,7 +29,6 @@ bool KotlinNativeLlvmBackend::compile(std::unique_ptr<Module> module, raw_pwrite
   preparationPasses.add(createInternalizePass());
   preparationPasses.add(createEliminateAvailableExternallyPass());
   preparationPasses.add(createGlobalDCEPass());
-
   preparationPasses.run(*module);
 
   legacy::PassManager modulePasses;
