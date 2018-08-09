@@ -59,9 +59,9 @@ private fun <T> partition(
     var j = right
     val pivot = array[(left + right) / 2]
     while (i <= j) {
-        while (comparator.compare(array[i], pivot) < 0)
+        while (comparator.compare(array[i], pivot) > 0)
             i++
-        while (comparator.compare(array[j], pivot) > 0)
+        while (comparator.compare(array[j], pivot) < 0)
             j--
         if (i <= j) {
             val tmp = array[i]
