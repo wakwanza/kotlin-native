@@ -33,6 +33,7 @@ import org.jetbrains.kotlin.ir.declarations.IrExternalPackageFragment
 import org.jetbrains.kotlin.ir.declarations.IrField
 import org.jetbrains.kotlin.ir.declarations.IrFile
 import org.jetbrains.kotlin.konan.target.KonanTarget
+import org.jetbrains.kotlin.library.KotlinLibraryReader
 import org.jetbrains.kotlin.library.impl.KotlinLibraryReaderImpl
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
@@ -343,7 +344,7 @@ internal class Llvm(val context: Context, val llvmModule: LLVMModuleRef) {
         }
     }
 
-    val librariesToLink: List<KonanLibraryReader>  by lazy {
+    val librariesToLink: List<KotlinLibraryReader>  by lazy {
         context.config.immediateLibraries
                 .filter { (!it.isDefaultLibrary && !context.config.purgeUserLibs) || it in usedLibraries }
                 .withResolvedDependencies()
@@ -373,7 +374,7 @@ internal class Llvm(val context: Context, val llvmModule: LLVMModuleRef) {
         return sorted
     }
 
-    val librariesForLibraryManifest: List<KonanLibraryReader> get() {
+    val librariesForLibraryManifest: List<KotlinLibraryReader> get() {
         // Note: library manifest should contain the list of all user libraries and frontend-used default libraries.
         // However this would result into linking too many default libraries into the application which uses current
         // library. This problem should probably be fixed by adding different kind of dependencies to library
