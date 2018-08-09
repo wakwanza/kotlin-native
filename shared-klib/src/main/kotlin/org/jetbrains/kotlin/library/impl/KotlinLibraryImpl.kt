@@ -17,7 +17,7 @@ class UnzippedKotlinLibrary(
 ): KotlinLibrary {
 
     override val libDir = location
-    override val libraryName = libDir.path
+    override val libraryName = location.path
 
     val targetList by lazy { targetsDir.listFiles.map{ it.name } }
 }
@@ -36,7 +36,7 @@ class ZippedKotlinLibrary(
     }
 
     override val libDir by lazy { location.asZipRoot }
-    override val libraryName = location.path.removeSuffixIfPresent(KOTLIN_LIBRARY_EXTENSION_WITH_DOT)
+    override val libraryName = libraryName(location)
 
     fun unpackTo(newDir: File) {
         if (newDir.exists) {
@@ -46,7 +46,11 @@ class ZippedKotlinLibrary(
                 newDir.delete()
         }
         libDir.recursiveCopyTo(newDir)
-        check(newDir.exists) { "Could not unpack $klibFile as $newDir." }
+        check(newDir.exists) { "Could not unpack $location as $newDir." }
+    }
+
+    companion object {
+        fun libraryName(location: File) = location.path.removeSuffixIfPresent(KOTLIN_LIBRARY_EXTENSION_WITH_DOT)
     }
 }
 

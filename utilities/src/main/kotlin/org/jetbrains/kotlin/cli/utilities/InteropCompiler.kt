@@ -16,18 +16,17 @@
 
 package org.jetbrains.kotlin.cli.utilities
 
-import org.jetbrains.kotlin.backend.konan.library.impl.KonanLibrary
 import org.jetbrains.kotlin.backend.konan.library.resolveLibrariesRecursive
-import org.jetbrains.kotlin.konan.TempFiles
 import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.konan.library.defaultResolver
 import org.jetbrains.kotlin.konan.properties.loadProperties
 import org.jetbrains.kotlin.konan.target.PlatformManager
+import org.jetbrains.kotlin.library.impl.KotlinLibrary
 import org.jetbrains.kotlin.native.interop.gen.jvm.interop
 import org.jetbrains.kotlin.utils.addIfNotNull
 
-private val NODEFAULTLIBS = "-nodefaultlibs"
-private val PURGE_USER_LIBS = "--purge_user_libs"
+private const val NODEFAULTLIBS = "-nodefaultlibs"
+private const val PURGE_USER_LIBS = "--purge_user_libs"
 
 // TODO: this function should eventually be eliminated from 'utilities'. 
 // The interaction of interop and the compler should be streamlined. 
@@ -75,7 +74,7 @@ fun invokeInterop(flavor: String, args: Array<String>): Array<String> {
     )
 
     val importArgs = allLibraries.flatMap {
-        val library = KonanLibrary(it.libraryFile)
+        val library = KotlinLibrary(it.libraryFile)
         val manifestProperties = library.manifestFile.loadProperties()
         // TODO: handle missing properties?
         manifestProperties["package"]?.let {

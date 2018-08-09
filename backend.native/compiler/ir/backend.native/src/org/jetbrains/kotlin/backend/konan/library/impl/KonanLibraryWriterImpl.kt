@@ -16,31 +16,47 @@
 
 package org.jetbrains.kotlin.backend.konan.library.impl
 
-import org.jetbrains.kotlin.backend.konan.library.KonanLibraryReader
 import llvm.LLVMModuleRef
 import llvm.LLVMWriteBitcodeToFile
-import org.jetbrains.kotlin.backend.konan.library.KonanLibrary
+import org.jetbrains.kotlin.backend.konan.library.KonanLibraryReader
 import org.jetbrains.kotlin.backend.konan.library.KonanLibraryWriter
 import org.jetbrains.kotlin.backend.konan.library.LinkData
-import org.jetbrains.kotlin.konan.file.*
-import org.jetbrains.kotlin.konan.properties.*
+import org.jetbrains.kotlin.konan.file.File
+import org.jetbrains.kotlin.konan.file.zipDirAs
+import org.jetbrains.kotlin.konan.properties.Properties
+import org.jetbrains.kotlin.konan.properties.loadProperties
+import org.jetbrains.kotlin.konan.properties.saveToFile
 import org.jetbrains.kotlin.konan.target.KonanTarget
+import org.jetbrains.kotlin.library.KOTLIN_LIBRARY_EXTENSION
+import org.jetbrains.kotlin.library.KotlinLibrary
 
 abstract class FileBasedLibraryWriter (
     val file: File, val currentAbiVersion: Int): KonanLibraryWriter {
 }
 
-class LibraryWriterImpl(override val libDir: File, moduleName: String, currentAbiVersion: Int, 
-    override val target: KonanTarget?, val nopack: Boolean = false): 
-        FileBasedLibraryWriter(libDir, currentAbiVersion), KonanLibrary {
+class LibraryWriterImpl(
+        override val location: File,
+        moduleName: String,
+        currentAbiVersion: Int,
+        override val target: KonanTarget?,
+        val nopack: Boolean = false
+):
+        FileBasedLibraryWriter(location, currentAbiVersion), KotlinLibrary {
 
-    public constructor(path: String, moduleName: String, currentAbiVersion: Int, 
-        target:KonanTarget?, nopack: Boolean): 
+    constructor(
+            path: String,
+            moduleName: String,
+            currentAbiVersion: Int,
+            target:KonanTarget?,
+            nopack: Boolean
+    ):
         this(File(path), moduleName, currentAbiVersion, target, nopack)
 
-    override val libraryName = libDir.path
-    val klibFile 
-       get() = File("${libDir.path}.klib")
+    override val libraryName = location.path
+    override val libDir = location
+
+    val klibFile
+       get() = File("${location.path}.$KOTLIN_LIBRARY_EXTENSION")
 
     // TODO: Experiment with separate bitcode files.
     // Per package or per class.
@@ -50,9 +66,9 @@ class LibraryWriterImpl(override val libDir: File, moduleName: String, currentAb
 
     init {
         // TODO: figure out the proper policy here.
-        libDir.deleteRecursively()
+        location.deleteRecursively()
         klibFile.delete()
-        libDir.mkdirs()
+        location.mkdirs()
         linkdataDir.mkdirs()
         targetDir.mkdirs()
         kotlinDir.mkdirs()
@@ -108,8 +124,8 @@ class LibraryWriterImpl(override val libDir: File, moduleName: String, currentAb
     override fun commit() {
         manifestProperties.saveToFile(manifestFile)
         if (!nopack) {
-            libDir.zipDirAs(klibFile)
-            libDir.deleteRecursively()
+            location.zipDirAs(klibFile)
+            location.deleteRecursively()
         }
     }
 }

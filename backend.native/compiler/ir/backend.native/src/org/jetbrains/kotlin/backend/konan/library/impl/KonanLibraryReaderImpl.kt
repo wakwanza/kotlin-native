@@ -18,14 +18,19 @@ package org.jetbrains.kotlin.backend.konan.library.impl
 
 import org.jetbrains.kotlin.backend.konan.KonanConfig
 import org.jetbrains.kotlin.backend.konan.library.KonanLibraryReader
-import org.jetbrains.kotlin.backend.konan.serialization.emptyPackages
 import org.jetbrains.kotlin.backend.konan.serialization.deserializeModule
-import org.jetbrains.kotlin.konan.file.File
-import org.jetbrains.kotlin.konan.properties.*
+import org.jetbrains.kotlin.backend.konan.serialization.emptyPackages
 import org.jetbrains.kotlin.config.LanguageVersionSettings
+import org.jetbrains.kotlin.konan.file.File
+import org.jetbrains.kotlin.konan.properties.Properties
+import org.jetbrains.kotlin.konan.properties.loadProperties
+import org.jetbrains.kotlin.konan.properties.propertyList
+import org.jetbrains.kotlin.konan.properties.propertyString
 import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.konan.util.defaultTargetSubstitutions
 import org.jetbrains.kotlin.konan.util.substitute
+import org.jetbrains.kotlin.library.impl.KotlinLibrary
+import org.jetbrains.kotlin.library.impl.realFiles
 
 class LibraryReaderImpl(var libraryFile: File, val currentAbiVersion: Int,
     val target: KonanTarget? = null, override val isDefaultLibrary: Boolean = false)
@@ -35,7 +40,7 @@ class LibraryReaderImpl(var libraryFile: File, val currentAbiVersion: Int,
     // whereas realFiles extracts them to /tmp.
     // For unzipped libraries inPlace and realFiles are the same
     // providing files in the library directory.
-    private val inPlace = KonanLibrary(libraryFile, target)
+    private val inPlace = KotlinLibrary(libraryFile, target)
     private val realFiles = inPlace.realFiles
 
     private val reader = MetadataReaderImpl(inPlace)

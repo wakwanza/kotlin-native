@@ -19,8 +19,6 @@ package org.jetbrains.kotlin.cli.klib
 // TODO: Extract `library` package as a shared jar?
 import org.jetbrains.kotlin.backend.konan.isStdlib
 import org.jetbrains.kotlin.backend.konan.library.impl.LibraryReaderImpl
-import org.jetbrains.kotlin.backend.konan.library.impl.UnzippedKonanLibrary
-import org.jetbrains.kotlin.backend.konan.library.impl.ZippedKonanLibrary
 import org.jetbrains.kotlin.backend.konan.serialization.parseModuleHeader
 import org.jetbrains.kotlin.config.ApiVersion
 import org.jetbrains.kotlin.config.LanguageVersion
@@ -31,6 +29,9 @@ import org.jetbrains.kotlin.konan.library.KonanLibrarySearchPathResolver
 import org.jetbrains.kotlin.konan.target.Distribution
 import org.jetbrains.kotlin.konan.target.PlatformManager
 import org.jetbrains.kotlin.konan.util.DependencyProcessor
+import org.jetbrains.kotlin.library.impl.UnzippedKotlinLibrary
+import org.jetbrains.kotlin.library.impl.ZippedKotlinLibrary
+import org.jetbrains.kotlin.library.impl.ZippedKotlinLibrary.Companion.libraryName
 import org.jetbrains.kotlin.metadata.KonanLinkData
 import java.lang.System.out
 import kotlin.system.exitProcess
@@ -117,9 +118,9 @@ class Library(val name: String, val requestedRepository: String?, val target: St
     }
 
     fun install() {
-        Library(File(name).name.removeSuffix(".klib"), requestedRepository, target).remove(true)
+        Library(libraryName(File(name)), requestedRepository, target).remove(true)
 
-        val library = ZippedKonanLibrary(libraryInCurrentDir(name))
+        val library = ZippedKotlinLibrary(libraryInCurrentDir(name))
         val newLibDir = File(repository, library.libraryName.File().name)
         newLibDir.mkdirs()
         library.unpackTo(newLibDir)
@@ -131,14 +132,14 @@ class Library(val name: String, val requestedRepository: String?, val target: St
         val reader = try {
             val library = libraryInRepo(repository, name)
             if (blind) warn("Removing The previously installed $name from $repository.")
-            UnzippedKonanLibrary(library)
+            UnzippedKotlinLibrary(library)
 
         } catch (e: Throwable) {
             if (!blind) println(e.message)
             null
 
         }
-        reader?.libDir?.deleteRecursively()
+        reader?.location?.deleteRecursively()
     }
 
     fun contents(output: Appendable = out) {

@@ -16,10 +16,10 @@
 
 package org.jetbrains.kotlin.backend.konan.library.impl
 
-import org.jetbrains.kotlin.backend.konan.library.KonanLibrary
 import org.jetbrains.kotlin.backend.konan.library.MetadataReader
+import org.jetbrains.kotlin.library.KotlinLibrary
 
-class MetadataReaderImpl(library: KonanLibrary) : MetadataReader, KonanLibrary by library {
+class MetadataReaderImpl(library: KotlinLibrary) : MetadataReader, KotlinLibrary by library {
 
     override fun loadSerializedModule(): ByteArray {
         return moduleHeaderFile.readBytes()
