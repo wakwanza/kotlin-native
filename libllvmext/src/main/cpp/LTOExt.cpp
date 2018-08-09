@@ -218,7 +218,6 @@ int LLVMLtoCodegen(LLVMContextRef contextRef,
   output->keep();
   // Print profiling report.
   reportAndResetTimings();
-  logging::debug() << "Bitcode compilation is complete.\n";
   return 0;
 }
 

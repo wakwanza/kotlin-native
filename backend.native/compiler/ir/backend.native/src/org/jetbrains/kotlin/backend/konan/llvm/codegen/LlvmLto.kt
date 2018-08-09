@@ -34,17 +34,14 @@ internal fun lto(context: Context, phaser: PhaseManager) {
     fun Boolean.toInt() = if (this) 1 else 0
 
     phaser.phase(KonanPhase.NEXTGEN) {
+        assert(context.shouldUseNewPipeline()) // just sanity check for now.
         val target = LLVMGetTarget(runtime.llvmModule)!!.toKString()
         val llvmRelocMode = if (context.config.produce == CompilerOutputKind.PROGRAM)
             LLVMRelocMode.LLVMRelocStatic else LLVMRelocMode.LLVMRelocPIC
         memScoped {
             val configuration = alloc<CompilationConfiguration>()
-            val (outputKind, filename) = if (context.config.produce == CompilerOutputKind.BITCODE) {
-                Pair(OutputKind.OUTPUT_KIND_BITCODE, "bitcode.ll")
-            } else {
-                context.mergedObject = context.config.tempFiles.create("merged", ".o")
-                Pair(OutputKind.OUTPUT_KIND_OBJECT_FILE, context.mergedObject.absolutePath)
-            }
+            context.mergedObject = context.config.tempFiles.create("merged", ".o")
+            val (outputKind, filename) = Pair(OutputKind.OUTPUT_KIND_OBJECT_FILE, context.mergedObject.absolutePath)
             configuration.apply {
                 optLevel = if (context.shouldOptimize()) 3 else 1
                 sizeLevel = 0 // TODO: make target dependent
