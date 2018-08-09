@@ -18,7 +18,6 @@ package org.jetbrains.kotlin.cli.klib
 
 // TODO: Extract `library` package as a shared jar?
 import org.jetbrains.kotlin.backend.konan.isStdlib
-import org.jetbrains.kotlin.backend.konan.library.impl.LibraryReaderImpl
 import org.jetbrains.kotlin.backend.konan.serialization.parseModuleHeader
 import org.jetbrains.kotlin.config.ApiVersion
 import org.jetbrains.kotlin.config.LanguageVersion
@@ -29,6 +28,7 @@ import org.jetbrains.kotlin.konan.library.KonanLibrarySearchPathResolver
 import org.jetbrains.kotlin.konan.target.Distribution
 import org.jetbrains.kotlin.konan.target.PlatformManager
 import org.jetbrains.kotlin.konan.util.DependencyProcessor
+import org.jetbrains.kotlin.library.impl.KotlinLibraryReaderImpl
 import org.jetbrains.kotlin.library.impl.UnzippedKotlinLibrary
 import org.jetbrains.kotlin.library.impl.ZippedKotlinLibrary
 import org.jetbrains.kotlin.library.impl.ZippedKotlinLibrary.Companion.libraryName
@@ -105,7 +105,7 @@ class Library(val name: String, val requestedRepository: String?, val target: St
     val repository = requestedRepository?.File() ?: defaultRepository
     fun info() {
         val library = libraryInRepoOrCurrentDir(repository, name)
-        val reader = LibraryReaderImpl(library, currentAbiVersion)
+        val reader = KotlinLibraryReaderImpl(library, currentAbiVersion)
         val headerAbiVersion = reader.abiVersion
         val moduleName = ModuleDeserializer(reader.moduleHeaderData).moduleName
 
@@ -143,7 +143,7 @@ class Library(val name: String, val requestedRepository: String?, val target: St
     }
 
     fun contents(output: Appendable = out) {
-        val reader = LibraryReaderImpl(libraryInRepoOrCurrentDir(repository, name), currentAbiVersion)
+        val reader = KotlinLibraryReaderImpl(libraryInRepoOrCurrentDir(repository, name), currentAbiVersion)
         val versionSpec = LanguageVersionSettingsImpl(currentLanguageVersion, currentApiVersion)
         val module = reader.moduleDescriptor(versionSpec)
         val defaultModules = mutableListOf<ModuleDescriptorImpl>()
@@ -155,7 +155,7 @@ class Library(val name: String, val requestedRepository: String?, val target: St
                     skipCurrentDir = true)
             resolver.defaultLinks(false, true)
                     .mapTo(defaultModules) {
-                        LibraryReaderImpl(it, currentAbiVersion).moduleDescriptor(versionSpec)
+                        KotlinLibraryReaderImpl(it, currentAbiVersion).moduleDescriptor(versionSpec)
                     }
         }
 

@@ -18,22 +18,25 @@ package org.jetbrains.kotlin.backend.konan
 
 import com.intellij.openapi.project.Project
 import org.jetbrains.kotlin.backend.konan.descriptors.createForwardDeclarationsModule
-import org.jetbrains.kotlin.backend.konan.library.*
-import org.jetbrains.kotlin.backend.konan.library.impl.*
+import org.jetbrains.kotlin.backend.konan.library.resolveImmediateLibraries
+import org.jetbrains.kotlin.backend.konan.library.resolveLibrariesRecursive
+import org.jetbrains.kotlin.backend.konan.library.withResolvedDependencies
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
-import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.*
+import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.STRONG_WARNING
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.kotlinSourceRoots
-import org.jetbrains.kotlin.descriptors.impl.ModuleDescriptorImpl
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
+import org.jetbrains.kotlin.descriptors.impl.ModuleDescriptorImpl
 import org.jetbrains.kotlin.konan.TempFiles
 import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.konan.library.defaultResolver
 import org.jetbrains.kotlin.konan.target.*
 import org.jetbrains.kotlin.konan.util.profile
+import org.jetbrains.kotlin.library.KotlinLibraryReader
+import org.jetbrains.kotlin.library.impl.KotlinLibraryReaderImpl
 import org.jetbrains.kotlin.storage.LockBasedStorageManager
 import org.jetbrains.kotlin.storage.StorageManager
 
@@ -90,7 +93,7 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
     private val repositories = configuration.getList(KonanConfigKeys.REPOSITORIES)
     private val resolver = defaultResolver(repositories, target, distribution)
 
-    internal val immediateLibraries: List<LibraryReaderImpl> by lazy {
+    internal val immediateLibraries: List<KotlinLibraryReaderImpl> by lazy {
         val result = resolver.resolveImmediateLibraries(libraryNames, target,
                 currentAbiVersion,
                 configuration.getBoolean(KonanConfigKeys.NOSTDLIB),
@@ -100,7 +103,7 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
         result
     }
 
-    fun librariesWithDependencies(moduleDescriptor: ModuleDescriptor?): List<KonanLibraryReader> {
+    fun librariesWithDependencies(moduleDescriptor: ModuleDescriptor?): List<KotlinLibraryReader> {
         if (moduleDescriptor == null) error("purgeUnneeded() only works correctly after resolve is over, and we have successfully marked package files as needed or not needed.")
 
         return immediateLibraries.purgeUnneeded(this).withResolvedDependencies()
@@ -171,3 +174,6 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
 
 fun CompilerConfiguration.report(priority: CompilerMessageSeverity, message: String) 
     = this.getNotNull(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY).report(priority, message)
+
+internal fun <T: KotlinLibraryReader> List<T>.purgeUnneeded(config: KonanConfig): List<T> =
+        this.filter{ (!it.isDefaultLibrary && !config.purgeUserLibs) || it.isNeededForLink }

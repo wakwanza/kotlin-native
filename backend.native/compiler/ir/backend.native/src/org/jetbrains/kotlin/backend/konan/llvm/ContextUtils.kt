@@ -28,15 +28,12 @@ import org.jetbrains.kotlin.backend.konan.descriptors.LlvmSymbolOrigin
 import org.jetbrains.kotlin.backend.konan.descriptors.findPackage
 import org.jetbrains.kotlin.backend.konan.hash.GlobalHash
 import org.jetbrains.kotlin.backend.konan.irasdescriptors.*
-import org.jetbrains.kotlin.backend.konan.library.KonanLibraryReader
-import org.jetbrains.kotlin.backend.konan.library.impl.LibraryReaderImpl
 import org.jetbrains.kotlin.backend.konan.library.withResolvedDependencies
-import org.jetbrains.kotlin.descriptors.DeclarationDescriptorWithVisibility
-import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.ir.declarations.IrExternalPackageFragment
 import org.jetbrains.kotlin.ir.declarations.IrField
 import org.jetbrains.kotlin.ir.declarations.IrFile
 import org.jetbrains.kotlin.konan.target.KonanTarget
+import org.jetbrains.kotlin.library.impl.KotlinLibraryReaderImpl
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import kotlin.properties.ReadOnlyProperty
@@ -326,7 +323,7 @@ internal class Llvm(val context: Context, val llvmModule: LLVMModuleRef) {
         return function
     }
 
-    private val usedLibraries = mutableSetOf<LibraryReaderImpl>()
+    private val usedLibraries = mutableSetOf<KotlinLibraryReaderImpl>()
 
     val imports = object : LlvmImports {
 
@@ -342,7 +339,7 @@ internal class Llvm(val context: Context, val llvmModule: LLVMModuleRef) {
                 error("$reader (${reader.libraryName}) is used but not requested")
             }
 
-            usedLibraries.add(reader as LibraryReaderImpl)
+            usedLibraries.add(reader as KotlinLibraryReaderImpl)
         }
     }
 
@@ -353,12 +350,12 @@ internal class Llvm(val context: Context, val llvmModule: LLVMModuleRef) {
                 .topoSort()
     }
 
-    private fun List<LibraryReaderImpl>.topoSort(): List<LibraryReaderImpl> {
-        var sorted = mutableListOf<LibraryReaderImpl>()
-        val visited = mutableSetOf<LibraryReaderImpl>()
-        val tempMarks = mutableSetOf<LibraryReaderImpl>()
+    private fun List<KotlinLibraryReaderImpl>.topoSort(): List<KotlinLibraryReaderImpl> {
+        var sorted = mutableListOf<KotlinLibraryReaderImpl>()
+        val visited = mutableSetOf<KotlinLibraryReaderImpl>()
+        val tempMarks = mutableSetOf<KotlinLibraryReaderImpl>()
 
-        fun visit(node: LibraryReaderImpl, result: MutableList<LibraryReaderImpl>) {
+        fun visit(node: KotlinLibraryReaderImpl, result: MutableList<KotlinLibraryReaderImpl>) {
             if (visited.contains(node)) return
             if (tempMarks.contains(node)) error("Cyclic dependency in library graph.")
             tempMarks.add(node)

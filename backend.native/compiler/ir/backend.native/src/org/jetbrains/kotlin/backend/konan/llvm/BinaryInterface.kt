@@ -20,7 +20,6 @@ import llvm.LLVMTypeRef
 import org.jetbrains.kotlin.backend.konan.descriptors.isAbstract
 import org.jetbrains.kotlin.backend.konan.irasdescriptors.*
 import org.jetbrains.kotlin.backend.konan.isValueType
-import org.jetbrains.kotlin.backend.konan.library.KonanLibraryReader
 import org.jetbrains.kotlin.backend.konan.optimizations.DataFlowIR
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
 import org.jetbrains.kotlin.descriptors.PropertyAccessorDescriptor
@@ -30,6 +29,7 @@ import org.jetbrains.kotlin.descriptors.annotations.AnnotationDescriptor
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.symbols.IrTypeParameterSymbol
 import org.jetbrains.kotlin.ir.types.*
+import org.jetbrains.kotlin.library.KotlinLibraryReader
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.resolve.constants.StringValue
@@ -322,5 +322,5 @@ internal fun ModuleDescriptor.privateClassSymbolName(index: Int, className: Stri
 internal val String.moduleConstructorName
     get() = "_Konan_init_${this}"
 
-internal val KonanLibraryReader.moduleConstructorName
+internal val KotlinLibraryReader.moduleConstructorName
     get() = uniqueName.moduleConstructorName

@@ -16,23 +16,23 @@
 
 package org.jetbrains.kotlin.backend.konan.library
 
-import org.jetbrains.kotlin.backend.konan.library.impl.LibraryReaderImpl
 import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.konan.library.SearchPathResolver
 import org.jetbrains.kotlin.konan.target.KonanTarget
+import org.jetbrains.kotlin.library.impl.KotlinLibraryReaderImpl
 
 fun SearchPathResolver.resolveImmediateLibraries(libraryNames: List<String>,
                                                  target: KonanTarget,
                                                  abiVersion: Int = 1,
                                                  noStdLib: Boolean = false,
                                                  noDefaultLibs: Boolean = false,
-                                                 logger: ((String) -> Unit)?): List<LibraryReaderImpl> {
+                                                 logger: ((String) -> Unit)?): List<KotlinLibraryReaderImpl> {
     val userProvidedLibraries = libraryNames
             .map { resolve(it) }
-            .map{ LibraryReaderImpl(it, abiVersion, target) }
+            .map{ KotlinLibraryReaderImpl(it, abiVersion, target) }
 
     val defaultLibraries = defaultLinks(nostdlib = noStdLib, noDefaultLibs = noDefaultLibs).map {
-        LibraryReaderImpl(it, abiVersion, target, isDefaultLibrary = true)
+        KotlinLibraryReaderImpl(it, abiVersion, target, isDefaultLibrary = true)
     }
 
     // Make sure the user provided ones appear first, so that 
@@ -56,14 +56,14 @@ private fun warnOnLibraryDuplicates(resolvedLibraries: List<File>,
     }
 }
 
-fun SearchPathResolver.resolveLibrariesRecursive(immediateLibraries: List<LibraryReaderImpl>,
+fun SearchPathResolver.resolveLibrariesRecursive(immediateLibraries: List<KotlinLibraryReaderImpl>,
                                                  target: KonanTarget,
                                                  abiVersion: Int) {
-    val cache = mutableMapOf<File, LibraryReaderImpl>()
+    val cache = mutableMapOf<File, KotlinLibraryReaderImpl>()
     cache.putAll(immediateLibraries.map { it.libraryFile.absoluteFile to it })
     var newDependencies = cache.values.toList()
     do {
-        newDependencies = newDependencies.map { library: LibraryReaderImpl ->
+        newDependencies = newDependencies.map { library: KotlinLibraryReaderImpl ->
             library.unresolvedDependencies
                     .map { resolve(it).absoluteFile }
                     .map { 
@@ -71,7 +71,7 @@ fun SearchPathResolver.resolveLibrariesRecursive(immediateLibraries: List<Librar
                             library.resolvedDependencies.add(cache[it]!!)
                             null
                         } else {
-                            val reader = LibraryReaderImpl(it, abiVersion, target)
+                            val reader = KotlinLibraryReaderImpl(it, abiVersion, target)
                             cache.put(it,reader)
                             library.resolvedDependencies.add(reader) 
                             reader
@@ -81,8 +81,8 @@ fun SearchPathResolver.resolveLibrariesRecursive(immediateLibraries: List<Librar
     } while (newDependencies.isNotEmpty())
 }
 
-fun List<LibraryReaderImpl>.withResolvedDependencies(): List<LibraryReaderImpl> {
-    val result = mutableSetOf<LibraryReaderImpl>()
+fun List<KotlinLibraryReaderImpl>.withResolvedDependencies(): List<KotlinLibraryReaderImpl> {
+    val result = mutableSetOf<KotlinLibraryReaderImpl>()
     result.addAll(this)
     var newDependencies = result.toList()
     do {
@@ -98,7 +98,7 @@ fun SearchPathResolver.resolveLibrariesRecursive(libraryNames: List<String>,
                                                  target: KonanTarget,
                                                  abiVersion: Int = 1,
                                                  noStdLib: Boolean = false,
-                                                 noDefaultLibs: Boolean = false): List<LibraryReaderImpl> {
+                                                 noDefaultLibs: Boolean = false): List<KotlinLibraryReaderImpl> {
     val immediateLibraries = resolveImmediateLibraries(
                     libraryNames = libraryNames,
                     target = target,

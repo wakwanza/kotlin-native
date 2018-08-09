@@ -18,10 +18,10 @@ package org.jetbrains.kotlin.backend.konan.descriptors
 
 import org.jetbrains.kotlin.backend.konan.Context
 import org.jetbrains.kotlin.backend.konan.KonanBuiltIns
-import org.jetbrains.kotlin.backend.konan.library.KonanLibraryReader
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
 import org.jetbrains.kotlin.descriptors.impl.ModuleDescriptorImpl
+import org.jetbrains.kotlin.library.KotlinLibraryReader
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.resolve.descriptorUtil.module
 import org.jetbrains.kotlin.storage.StorageManager
@@ -35,7 +35,7 @@ sealed class KonanModuleOrigin {
 // Note: merging these two concepts (LlvmSymbolOrigin and KonanModuleOrigin) for simplicity:
 sealed class LlvmSymbolOrigin : KonanModuleOrigin()
 
-data class DeserializedKonanModule(val reader: KonanLibraryReader) : LlvmSymbolOrigin()
+data class DeserializedKonanModule(val reader: KotlinLibraryReader) : LlvmSymbolOrigin()
 object CurrentKonanModule : LlvmSymbolOrigin()
 
 object SyntheticModules : KonanModuleOrigin()

@@ -1,26 +1,7 @@
-/*
- * Copyright 2010-2017 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+package org.jetbrains.kotlin.library.impl
 
-package org.jetbrains.kotlin.backend.konan.library.impl
-
-import org.jetbrains.kotlin.backend.konan.KonanConfig
-import org.jetbrains.kotlin.backend.konan.library.KonanLibraryReader
-import org.jetbrains.kotlin.backend.konan.serialization.deserializeModule
-import org.jetbrains.kotlin.backend.konan.serialization.emptyPackages
 import org.jetbrains.kotlin.config.LanguageVersionSettings
+import org.jetbrains.kotlin.descriptors.impl.ModuleDescriptorImpl
 import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.konan.properties.Properties
 import org.jetbrains.kotlin.konan.properties.loadProperties
@@ -29,12 +10,16 @@ import org.jetbrains.kotlin.konan.properties.propertyString
 import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.konan.util.defaultTargetSubstitutions
 import org.jetbrains.kotlin.konan.util.substitute
-import org.jetbrains.kotlin.library.impl.KotlinLibrary
-import org.jetbrains.kotlin.library.impl.realFiles
+import org.jetbrains.kotlin.library.KotlinLibraryMetadataReader
+import org.jetbrains.kotlin.library.KotlinLibraryReader
 
-class LibraryReaderImpl(var libraryFile: File, val currentAbiVersion: Int,
-    val target: KonanTarget? = null, override val isDefaultLibrary: Boolean = false)
-    : KonanLibraryReader {
+class KotlinLibraryReaderImpl(
+        val libraryFile: File,
+        val currentAbiVersion: Int,
+        val target: KonanTarget? = null,
+        override val isDefaultLibrary: Boolean = false,
+        val metadataReader: KotlinLibraryMetadataReader = DefaultKotlinLibraryMetadataReader
+) : KotlinLibraryReader {
 
     // For the zipped libraries inPlace gives files from zip file system
     // whereas realFiles extracts them to /tmp.
@@ -42,8 +27,6 @@ class LibraryReaderImpl(var libraryFile: File, val currentAbiVersion: Int,
     // providing files in the library directory.
     private val inPlace = KotlinLibrary(libraryFile, target)
     private val realFiles = inPlace.realFiles
-
-    private val reader = MetadataReaderImpl(inPlace)
 
     override val manifestProperties: Properties by lazy {
         val properties = inPlace.manifestFile.loadProperties()
@@ -54,7 +37,7 @@ class LibraryReaderImpl(var libraryFile: File, val currentAbiVersion: Int,
     val abiVersion: String
         get() {
             val manifestAbiVersion = manifestProperties.getProperty("abi_version")
-            if ("$currentAbiVersion" != manifestAbiVersion) 
+            if ("$currentAbiVersion" != manifestAbiVersion)
                 error("ABI version mismatch. Compiler expects: $currentAbiVersion, the library is $manifestAbiVersion")
             return manifestAbiVersion
         }
@@ -62,15 +45,14 @@ class LibraryReaderImpl(var libraryFile: File, val currentAbiVersion: Int,
     val targetList = inPlace.targetsDir.listFiles.map{it.name}
     override val dataFlowGraph by lazy { inPlace.dataFlowGraphFile.let { if (it.exists) it.readBytes() else null } }
 
-    override val libraryName 
+    override val libraryName
         get() = inPlace.libraryName
 
     override val uniqueName
         get() = manifestProperties.propertyString("unique_name")!!
 
     override val bitcodePaths: List<String>
-        get() = (realFiles.kotlinDir.listFilesOrEmpty + realFiles.nativeDir.listFilesOrEmpty)
-                .map { it.absolutePath }
+        get() = (realFiles.kotlinDir.listFilesOrEmpty + realFiles.nativeDir.listFilesOrEmpty).map { it.absolutePath }
 
     override val includedPaths: List<String>
         get() = (realFiles.includedDir.listFilesOrEmpty).map { it.absolutePath }
@@ -81,16 +63,14 @@ class LibraryReaderImpl(var libraryFile: File, val currentAbiVersion: Int,
     override val unresolvedDependencies: List<String>
         get() = manifestProperties.propertyList("depends")
 
-    val resolvedDependencies = mutableListOf<LibraryReaderImpl>()
+    val resolvedDependencies = mutableListOf<KotlinLibraryReaderImpl>()
 
-    override val moduleHeaderData: ByteArray by lazy {
-        reader.loadSerializedModule()
-    }
+    override val moduleHeaderData: ByteArray by lazy { metadataReader.loadSerializedModule(inPlace) }
 
     override var isNeededForLink: Boolean = false
         private set
 
-    private val emptyPackages by lazy { emptyPackages(moduleHeaderData) }
+    private val emptyPackages: List<String> by lazy { emptyPackages(moduleHeaderData) }
 
     override fun markPackageAccessed(fqName: String) {
         if (!isNeededForLink // fast path
@@ -99,15 +79,18 @@ class LibraryReaderImpl(var libraryFile: File, val currentAbiVersion: Int,
         }
     }
 
-    override fun packageMetadata(fqName: String): ByteArray {
-        return reader.loadSerializedPackageFragment(fqName)
-    }
+    override fun packageMetadata(fqName: String) = metadataReader.loadSerializedPackageFragment(inPlace, fqName)
 
-    override fun moduleDescriptor(specifics: LanguageVersionSettings) 
-        = deserializeModule(specifics, this)
+    override fun moduleDescriptor(specifics: LanguageVersionSettings) = deserializeModule(specifics, this)
 
 }
 
-internal fun <T: KonanLibraryReader> List<T>.purgeUnneeded(config: KonanConfig): List<T> =
-        this.filter{ (!it.isDefaultLibrary && !config.purgeUserLibs) || it.isNeededForLink }
+// FIXME: ddol: methods to implement:
+fun emptyPackages(libraryDate: ByteArray): List<String> = TODO()
+fun deserializeModule(specifics: LanguageVersionSettings, reader: KotlinLibraryReader): ModuleDescriptorImpl = TODO()
+
+//internal fun <T: KotlinLibraryReader> List<T>.purgeUnneeded(config: KonanConfig): List<T> =
+//        this.filter{ (!it.isDefaultLibrary && !config.purgeUserLibs) || it.isNeededForLink }
+
+
 

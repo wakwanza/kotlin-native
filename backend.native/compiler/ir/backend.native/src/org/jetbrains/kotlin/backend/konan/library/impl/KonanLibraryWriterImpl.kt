@@ -18,7 +18,6 @@ package org.jetbrains.kotlin.backend.konan.library.impl
 
 import llvm.LLVMModuleRef
 import llvm.LLVMWriteBitcodeToFile
-import org.jetbrains.kotlin.backend.konan.library.KonanLibraryReader
 import org.jetbrains.kotlin.backend.konan.library.KonanLibraryWriter
 import org.jetbrains.kotlin.backend.konan.library.LinkData
 import org.jetbrains.kotlin.konan.file.File
@@ -29,6 +28,7 @@ import org.jetbrains.kotlin.konan.properties.saveToFile
 import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.library.KOTLIN_LIBRARY_EXTENSION
 import org.jetbrains.kotlin.library.KotlinLibrary
+import org.jetbrains.kotlin.library.KotlinLibraryReader
 
 abstract class FileBasedLibraryWriter (
     val file: File, val currentAbiVersion: Int): KonanLibraryWriter {
@@ -101,7 +101,7 @@ class LibraryWriterImpl(
         File(library).copyTo(File(includedDir, basename)) 
     }
 
-    override fun addLinkDependencies(libraries: List<KonanLibraryReader>) {
+    override fun addLinkDependencies(libraries: List<KotlinLibraryReader>) {
         if (libraries.isEmpty()) {
             manifestProperties.remove("depends") 
             // make sure there are no leftovers from the .def file.
@@ -131,18 +131,18 @@ class LibraryWriterImpl(
 }
 
 internal fun buildLibrary(
-    natives: List<String>, 
-    included: List<String>,
-    linkDependencies: List<KonanLibraryReader>,
-    linkData: LinkData, 
-    abiVersion: Int, 
-    target: KonanTarget, 
-    output: String, 
-    moduleName: String, 
-    llvmModule: LLVMModuleRef, 
-    nopack: Boolean, 
-    manifest: String?,
-    dataFlowGraph: ByteArray?): KonanLibraryWriter {
+        natives: List<String>,
+        included: List<String>,
+        linkDependencies: List<KotlinLibraryReader>,
+        linkData: LinkData,
+        abiVersion: Int,
+        target: KonanTarget,
+        output: String,
+        moduleName: String,
+        llvmModule: LLVMModuleRef,
+        nopack: Boolean,
+        manifest: String?,
+        dataFlowGraph: ByteArray?): KonanLibraryWriter {
 
     val library = LibraryWriterImpl(output, moduleName, abiVersion, target, nopack)
 

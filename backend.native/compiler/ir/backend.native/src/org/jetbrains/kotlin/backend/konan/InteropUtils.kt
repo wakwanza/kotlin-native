@@ -18,13 +18,12 @@ package org.jetbrains.kotlin.backend.konan
 
 import org.jetbrains.kotlin.backend.konan.descriptors.ClassifierAliasingPackageFragmentDescriptor
 import org.jetbrains.kotlin.backend.konan.descriptors.ExportedForwardDeclarationsPackageFragmentDescriptor
-import org.jetbrains.kotlin.backend.konan.library.KonanLibraryReader
 import org.jetbrains.kotlin.backend.konan.serialization.KonanPackageFragment
 import org.jetbrains.kotlin.descriptors.ClassDescriptor
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
 import org.jetbrains.kotlin.descriptors.PackageFragmentDescriptor
-import org.jetbrains.kotlin.descriptors.PropertyDescriptor
 import org.jetbrains.kotlin.incremental.components.NoLookupLocation
+import org.jetbrains.kotlin.library.KotlinLibraryReader
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.resolve.scopes.MemberScope
@@ -38,7 +37,7 @@ interface InteropLibrary {
     ): List<PackageFragmentDescriptor>
 }
 
-fun createInteropLibrary(reader: KonanLibraryReader): InteropLibrary? {
+fun createInteropLibrary(reader: KotlinLibraryReader): InteropLibrary? {
     if (reader.manifestProperties.getProperty("interop") != "true") return null
     val pkg = reader.manifestProperties.getProperty("package") 
         ?: error("Inconsistent manifest: interop library ${reader.libraryName} should have `package` specified")

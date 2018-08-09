@@ -21,12 +21,12 @@ import org.jetbrains.kotlin.backend.konan.createInteropLibrary
 import org.jetbrains.kotlin.backend.konan.descriptors.DeserializedKonanModule
 import org.jetbrains.kotlin.backend.konan.descriptors.createKonanModuleDescriptor
 import org.jetbrains.kotlin.backend.konan.descriptors.isExpectMember
-import org.jetbrains.kotlin.backend.konan.library.KonanLibraryReader
 import org.jetbrains.kotlin.backend.konan.library.LinkData
 import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.descriptors.impl.ModuleDescriptorImpl
 import org.jetbrains.kotlin.incremental.components.LookupTracker
+import org.jetbrains.kotlin.library.KotlinLibraryReader
 import org.jetbrains.kotlin.metadata.KonanLinkData
 import org.jetbrains.kotlin.metadata.KonanLinkData.*
 import org.jetbrains.kotlin.metadata.ProtoBuf
@@ -65,7 +65,7 @@ object NullFlexibleTypeDeserializer : FlexibleTypeDeserializer {
 }
 
 fun createKonanPackageFragmentProvider(
-        reader: KonanLibraryReader,
+        reader: KotlinLibraryReader,
         fragmentNames: List<String>,
         storageManager: StorageManager, module: ModuleDescriptor,
         configuration: DeserializationConfiguration): PackageFragmentProvider {
@@ -114,7 +114,7 @@ public fun emptyPackages(libraryData: ByteArray)
     = parseModuleHeader(libraryData).emptyPackageList
 
 internal fun deserializeModule(languageVersionSettings: LanguageVersionSettings,
-                               reader: KonanLibraryReader): ModuleDescriptorImpl {
+                               reader: KotlinLibraryReader): ModuleDescriptorImpl {
 
     val libraryProto = parseModuleHeader(reader.moduleHeaderData)
 
