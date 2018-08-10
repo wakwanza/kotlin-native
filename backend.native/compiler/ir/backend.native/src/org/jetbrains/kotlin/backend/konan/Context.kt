@@ -304,7 +304,7 @@ internal class Context(config: KonanConfig) : KonanBackendContext(config) {
             @Suppress("UNCHECKED_CAST") (lazyValues.getOrPut(member, { member.initializer(this) }) as T)
 
     override val reflectionTypes: ReflectionTypes by lazy(PUBLICATION) {
-        ReflectionTypes(moduleDescriptor, FqName("konan.internal"))
+        ReflectionTypes(moduleDescriptor, FqName("kotlin.native.internal"))
     }
     private val vtableBuilders = mutableMapOf<IrClass, ClassVtablesBuilder>()
 

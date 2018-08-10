@@ -20,7 +20,7 @@ import org.jetbrains.kotlin.backend.common.COROUTINE_SUSPENDED_NAME
 import org.jetbrains.kotlin.backend.common.ir.Ir
 import org.jetbrains.kotlin.backend.common.ir.Symbols
 import org.jetbrains.kotlin.backend.konan.*
-import org.jetbrains.kotlin.backend.konan.descriptors.konanInternal
+import org.jetbrains.kotlin.backend.konan.descriptors.kotlinNativeInternal
 import org.jetbrains.kotlin.backend.konan.irasdescriptors.typeWith
 import org.jetbrains.kotlin.backend.konan.llvm.findMainEntryPoint
 import org.jetbrains.kotlin.backend.konan.lower.TestProcessor
@@ -171,7 +171,7 @@ internal class KonanSymbols(context: Context, val symbolTable: SymbolTable, val 
             symbolTable.referenceSimpleFunction(context.interopBuiltIns.CreateNSStringFromKString)
 
     val objCExportTrapOnUndeclaredException =
-            symbolTable.referenceSimpleFunction(context.builtIns.konanInternal.getContributedFunctions(
+            symbolTable.referenceSimpleFunction(context.builtIns.kotlinNativeInternal.getContributedFunctions(
                     Name.identifier("trapOnUndeclaredException"),
                     NoLookupLocation.FROM_BACKEND
             ).single())
@@ -189,7 +189,7 @@ internal class KonanSymbols(context: Context, val symbolTable: SymbolTable, val 
     }
 
     val immutableBinaryBlob = symbolTable.referenceClass(
-            builtInsPackage("konan").getContributedClassifier(
+            builtInsPackage("kotlin", "native").getContributedClassifier(
                     Name.identifier("ImmutableBinaryBlob"), NoLookupLocation.FROM_BACKEND
             ) as ClassDescriptor
     )
@@ -299,7 +299,7 @@ internal class KonanSymbols(context: Context, val symbolTable: SymbolTable, val 
             context.getInternalFunctions("initInstance").single())
 
     val freeze = symbolTable.referenceSimpleFunction(
-            builtInsPackage("konan", "worker").getContributedFunctions(Name.identifier("freeze"), NoLookupLocation.FROM_BACKEND).single())
+            builtInsPackage("kotlin", "native", "worker").getContributedFunctions(Name.identifier("freeze"), NoLookupLocation.FROM_BACKEND).single())
 
     val println = symbolTable.referenceSimpleFunction(
             builtInsPackage("kotlin", "io").getContributedFunctions(Name.identifier("println"), NoLookupLocation.FROM_BACKEND)
@@ -358,7 +358,7 @@ internal class KonanSymbols(context: Context, val symbolTable: SymbolTable, val 
             symbolTable.referenceClass(context.getInternalClass(name))
 
     private fun getKonanTestClass(className: String) = symbolTable.referenceClass(
-            builtInsPackage("konan", "test").getContributedClassifier(
+            builtInsPackage("kotlin", "native", "test").getContributedClassifier(
                     Name.identifier(className), NoLookupLocation.FROM_BACKEND
             ) as ClassDescriptor)
 

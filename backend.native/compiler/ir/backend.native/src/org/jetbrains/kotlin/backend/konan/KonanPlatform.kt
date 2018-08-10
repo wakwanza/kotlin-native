@@ -47,12 +47,12 @@ class KonanBuiltIns(storageManager: StorageManager) : KotlinBuiltIns(storageMana
     }
 
     object FqNames {
-        val packageName = FqName("konan.internal")
+        val packageName = FqName("kotlin.native.internal")
 
         val nativePtr = packageName.child(Name.identifier(nativePtrName)).toUnsafe()
         val nonNullNativePtr = FqNameUnsafe("konan.internal.NonNullNativePtr")
 
-        val throws = FqName("konan.Throws")
+        val throws = FqName("kotlin.native.Throws")
     }
 
     private val packageScope by lazy { builtInsModule.getPackage(FqNames.packageName).memberScope }
@@ -63,7 +63,7 @@ class KonanBuiltIns(storageManager: StorageManager) : KotlinBuiltIns(storageMana
     val nativePtrToLong   by lazy { nativePtr.unsubstitutedMemberScope.getContributedFunctions("toLong").single() }
     val getNativeNullPtr  by lazy { packageScope.getContributedFunctions("getNativeNullPtr").single() }
     val immutableBinaryBlobOf by lazy {
-        builtInsModule.getPackage(FqName("konan")).memberScope.
+        builtInsModule.getPackage(FqName("kotlin.native")).memberScope.
                 getContributedFunctions("immutableBinaryBlobOf").single()
     }
 
@@ -76,7 +76,7 @@ class KonanBuiltIns(storageManager: StorageManager) : KotlinBuiltIns(storageMana
 
 object KonanPlatform : TargetPlatform("Konan") {
     override fun computePlatformSpecificDefaultImports(storageManager: StorageManager, result: MutableList<ImportPath>) {
-        result.add(ImportPath.fromString("konan.*"))
+        result.add(ImportPath.fromString("kotlin.native.*"))
     }
 
     override val multiTargetPlatform = MultiTargetPlatform.Specific(platformName)
