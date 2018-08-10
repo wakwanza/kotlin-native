@@ -31,6 +31,7 @@ internal fun lto(context: Context, phaser: PhaseManager) {
         }
     }
 
+    // TODO: 
     fun Boolean.toInt() = if (this) 1 else 0
 
     phaser.phase(KonanPhase.NEXTGEN) {

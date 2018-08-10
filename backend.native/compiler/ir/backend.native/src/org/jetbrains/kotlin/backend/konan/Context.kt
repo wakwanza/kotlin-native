@@ -501,7 +501,8 @@ internal class Context(config: KonanConfig) : KonanBackendContext(config) {
         val goodKind = kind == CompilerOutputKind.DYNAMIC
                 || kind == CompilerOutputKind.STATIC
                 || kind == CompilerOutputKind.PROGRAM
-        return config.target != KonanTarget.WASM32 && goodKind
+        val x = config.configuration.getBoolean(KonanConfigKeys.NEW_PIPELINE)
+        return (config.target != KonanTarget.WASM32 && goodKind)
     }
 
     fun shouldGenerateTestRunner() =

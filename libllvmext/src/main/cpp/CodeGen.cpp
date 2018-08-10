@@ -29,7 +29,7 @@ bool KotlinNativeLlvmBackend::compile(std::unique_ptr<Module> module, raw_pwrite
   preparationPasses.add(createInternalizePass());
   preparationPasses.add(createEliminateAvailableExternallyPass());
   preparationPasses.add(createGlobalDCEPass());
-  preparationPasses.run(*module);
+//  preparationPasses.run(*module);
 
   legacy::PassManager modulePasses;
   modulePasses.add(
