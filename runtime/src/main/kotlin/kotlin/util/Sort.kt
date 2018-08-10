@@ -57,11 +57,12 @@ private fun <T> partition(
         array: Array<T>, left: Int, right: Int, comparator: Comparator<T>): Int {
     var i = left
     var j = right
-    val pivot = array[(left + right) / 2]
+    val pivotIndex = (left + right) / 2
+    val pivot = array[pivotIndex]
     while (i <= j) {
-        while (comparator.compare(array[i], pivot) < 0)
+        while (i <= right && comparator.compare(array[i], pivot) < 0)
             i++
-        while (comparator.compare(array[j], pivot) > 0)
+        while (j >= left && comparator.compare(array[j], pivot) > 0)
             j--
         if (i <= j) {
             val tmp = array[i]
@@ -71,7 +72,24 @@ private fun <T> partition(
             j--
         }
     }
-    return i
+    // Take into acccount a rare case when the comparator doesn't return 0 for equal objects.
+    // In this case all the elements may be less than the pivot and 'i' will move beyond 'right'.
+    when {
+        i <= right && j >= left ->
+            return i
+        i > right -> {
+            val tmp = array[right]
+            array[right] = array[pivotIndex]
+            array[pivotIndex] = tmp
+            return right
+        }
+        else /* j < left */ -> {
+            val tmp = array[left]
+            array[left] = array[pivotIndex]
+            array[pivotIndex] = tmp
+            return left
+        }
+    }
 }
 
 private fun <T> quickSort(
