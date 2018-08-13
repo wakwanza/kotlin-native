@@ -31,6 +31,8 @@ internal class RTTIGenerator(override val context: Context) : ContextUtils {
         var result = 0
         if (classDescriptor.isFrozen)
            result = result or 1 /* TF_IMMUTABLE */
+        if (classDescriptor.isFreezeAware)
+            result = result or 2 /* TF_FREEZE_AWARE */
         return result
     }
 

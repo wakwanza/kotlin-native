@@ -58,7 +58,8 @@ enum Konan_RuntimeType {
 };
 
 enum Konan_TypeFlags {
-  TF_IMMUTABLE = 1 << 0
+  TF_IMMUTABLE = 1 << 0,
+  TF_FREEZE_AWARE = 1 << 1
 };
 
 enum Konan_MetaFlags {

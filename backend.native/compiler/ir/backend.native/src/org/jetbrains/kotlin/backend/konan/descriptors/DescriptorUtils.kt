@@ -85,6 +85,7 @@ internal fun IrSimpleFunction.resolveFakeOverride(): IrSimpleFunction {
 
 private val intrinsicAnnotation = FqName("konan.internal.Intrinsic")
 private val frozenAnnotation = FqName("konan.internal.Frozen")
+private val freezeAwareAnnotation = FqName("konan.internal.FreezeAware")
 
 // TODO: don't forget to remove descriptor access here.
 internal val FunctionDescriptor.isIntrinsic: Boolean
@@ -97,6 +98,12 @@ internal val org.jetbrains.kotlin.descriptors.DeclarationDescriptor.isFrozen: Bo
 
 internal val DeclarationDescriptor.isFrozen: Boolean
     get() = this.descriptor.isFrozen
+
+internal val org.jetbrains.kotlin.descriptors.DeclarationDescriptor.isFreezeAware: Boolean
+    get() = this.annotations.hasAnnotation(freezeAwareAnnotation)
+
+internal val DeclarationDescriptor.isFreezeAware: Boolean
+    get() = this.descriptor.isFreezeAware
 
 internal val arrayTypes = setOf(
         "kotlin.Array",

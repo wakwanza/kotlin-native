@@ -1583,11 +1583,14 @@ void freezeAcyclic(ContainerHeader* rootContainer) {
   while (!queue.empty()) {
     ContainerHeader* current = queue.front();
     queue.pop_front();
+    // Note, that once object is frozen, it could be concurrently accessed, so
+    // color and similar attributes shall not be used.
     current->unMark();
     current->resetBuffered();
     current->setColor(CONTAINER_TAG_GC_BLACK);
-    // Note, that once object is frozen, it could be concurrently accessed, so
-    // color and similar attributes shall not be used.
+    if ((current->type_info()->flags_ & TF_FREEZING_AWARE) != 0) {
+      // Invoke beforeFreeze().
+    }
     current->freeze();
     traverseContainerReferredObjects(current, [current, &queue](ObjHeader* obj) {
         ContainerHeader* objContainer = obj->container();
@@ -1611,8 +1614,12 @@ void freezeCyclic(ContainerHeader* rootContainer, const KStdVector<ContainerHead
     traverseContainerReferredObjects(current, [current, &queue, &reversedEdges](ObjHeader* obj) {
           ContainerHeader* objContainer = obj->container();
           if (!objContainer->permanentOrFrozen()) {
-            if (objContainer->marked())
+            if (objContainer->marked()) {
+              if ((obj->type_info()->flags_ & TF_FREEZING_AWARE) != 0) {
+                // Invoke beforeFreeze().
+              }
               queue.push_back(objContainer);
+            }
             reversedEdges.emplace(objContainer, KStdVector<ContainerHeader*>(0)).first->second.push_back(current);
           }
       });
@@ -1699,7 +1706,7 @@ void FreezeSubgraph(ObjHeader* root) {
   if (firstBlocker != nullptr) {
     ThrowFreezingException(root, firstBlocker);
   }
-  // Now unmark all marked objects, and freeze them, if no cycles detected.
+  // Now unmark all marked objects, and freeze their containers.
   if (hasCycles) {
     freezeCyclic(rootContainer, order);
   } else {

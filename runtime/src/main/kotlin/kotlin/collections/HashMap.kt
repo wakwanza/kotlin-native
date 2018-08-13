@@ -16,6 +16,7 @@
 
 package kotlin.collections
 
+@FreezeAware
 actual class HashMap<K, V> private constructor(
         private var keysArray: Array<K>,
         private var valuesArray: Array<V>?, // allocated only when actually used, always null in pure HashSet
@@ -57,6 +58,17 @@ actual class HashMap<K, V> private constructor(
     override actual fun containsKey(key: K): Boolean = findKey(key) >= 0
     override actual fun containsValue(value: V): Boolean = findValue(value) >= 0
 
+    fun beforeFreeze() {
+        if (keysView === null) {
+            keysView = HashSet(this)
+        }
+        if (valuesView === null) {
+            valuesView = HashMapValues(this)
+        }
+        if (entriesView === null) {
+            entriesView = HashMapEntrySet(this)
+        }
+    }
 
     operator fun set(key: K, value: V): Unit {
         put(key, value)
@@ -137,9 +149,7 @@ actual class HashMap<K, V> private constructor(
     }
 
     override fun equals(other: Any?): Boolean {
-        return other === this ||
-                (other is Map<*, *>) &&
-                        contentEquals(other)
+        return other === this || (other is Map<*, *>) && contentEquals(other)
     }
 
     override fun hashCode(): Int {

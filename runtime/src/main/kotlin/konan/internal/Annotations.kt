@@ -65,3 +65,10 @@ annotation class InlineConstructor
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.BINARY)
 internal annotation class Frozen
+
+/**
+ * Class is aware about freezing. Method beforeFreeze() of the object shall be called before freezing.
+ */
+@Target(AnnotationTarget.CLASS)
+@Retention(AnnotationRetention.BINARY)
+internal annotation class FreezeAware
