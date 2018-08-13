@@ -18,7 +18,6 @@ linkerOpts = -fvisibility-inlines-hidden \
     -std=c++11 \
     -DNDEBUG -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS \
     -ldebugInfo -lllvmext \
-    -Wl,--start-group \
     -lLLVMLTO -lLLVMPasses -lLLVMObjCARCOpts -lLLVMSymbolize \
     -lLLVMDebugInfoPDB -lLLVMDebugInfoDWARF -lLLVMMIRParser -lLLVMCoverage \
     -lLLVMTableGen -lLLVMDlltoolDriver -lLLVMOrcJIT \
@@ -69,7 +68,6 @@ linkerOpts.linux = \
 		 -lLLVMBPFDisassembler -lLLVMBPFCodeGen -lLLVMBPFDesc -lLLVMBPFInfo -lLLVMBPFAsmPrinter \
 		 -lLLVMAMDGPUDisassembler -lLLVMAMDGPUCodeGen -lLLVMAMDGPUAsmParser -lLLVMAMDGPUDesc -lLLVMAMDGPUInfo -lLLVMAMDGPUAsmPrinter -lLLVMAMDGPUUtils \
 		 -lLLVMAArch64Disassembler -lLLVMAArch64CodeGen -lLLVMAArch64AsmParser -lLLVMAArch64Desc -lLLVMAArch64Info -lLLVMAArch64AsmPrinter -lLLVMAArch64Utils \
-		 -Wl,--end-group \
 		-fPIC \
         -Wl,-z,noexecstack \
         -lrt -ldl -lpthread -lz -lm
